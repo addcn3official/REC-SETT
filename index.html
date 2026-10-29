@@ -74,11 +74,16 @@ th.num{text-align:right}
 .empty{color:var(--muted);padding:30px 16px;text-align:center}
 .banner{font-size:13px;color:var(--amber);background:var(--amber-bg);padding:8px 12px;border-radius:8px}
 /* transfer */
-.steps{display:grid;grid-template-columns:minmax(0,1fr) 150px minmax(0,1fr);gap:12px;align-items:stretch}
+.steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}
 .step{border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:8px;align-content:start;background:var(--bg);min-width:0}
 .step.out{border-top:3px solid var(--red)} .step.tie{border-top:3px solid var(--muted)} .step.recv{border-top:3px solid var(--accent)}
 .stepk{font-weight:700;font-size:14px;display:flex;gap:6px;align-items:center}
 .stepk .n{font-family:var(--mono);font-size:12px;width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;background:var(--surface);border:1px solid var(--line)}
+.phase{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.phase label{display:grid;gap:2px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted)}
+.phase input{padding:7px 8px;font-family:var(--mono)}
+.inval{font-size:13px;color:var(--muted);margin-top:4px}
+.ph3{display:flex;gap:4px}.ph3 input{width:58px!important;padding:5px 6px}
 .devinfo{font-size:13px;color:var(--muted);min-height:20px}
 .devinfo b{font-family:var(--mono);color:var(--fg)}
 .sld{display:flex;align-items:center;flex-wrap:wrap;gap:6px 0;padding:6px 0}
@@ -160,14 +165,17 @@ pre.report{white-space:pre-wrap;font-family:var(--body);font-size:13px;backgroun
     <div class="tgrid">
       <div class="tmain">
         <div class="panel">
-          <h3>1 · ปลดอุปกรณ์ แล้วฝากโหลดไปที่ไหน</h3>
+          <h3>ปลดอุปกรณ์ แล้วฝากโหลดไปที่ไหน</h3>
           <div class="steps">
             <div class="step out">
               <div class="stepk"><span class="n">1</span>อุปกรณ์ที่จะปลด</div>
               <div class="adder"><input type="search" id="outQ" placeholder="เช่น NCH03R-01" aria-label="อุปกรณ์ที่จะปลด" autocomplete="off"><div class="sugg" id="outS" hidden></div></div>
               <div class="devinfo" id="outInfo">โหลดด้านหลังตัวนี้คือโหลดที่จะฝาก</div>
-              <div><label class="lbl" for="outLoad">โหลดหลังอุปกรณ์ (A)</label><input type="number" id="outLoad" min="0" inputmode="decimal" placeholder="Peak load"></div>
-              <div><label class="lbl" for="outIn">Unbalance / In (A)</label><input type="number" id="outIn" min="0" inputmode="decimal" placeholder="ไม่ระบุได้"></div>
+              <div><span class="lbl">กระแสหลังอุปกรณ์ (A)</span><div class="phase">
+                <label>IA<input type="number" id="outA" min="0" inputmode="decimal" placeholder="0"></label>
+                <label>IB<input type="number" id="outB" min="0" inputmode="decimal" placeholder="0"></label>
+                <label>IC<input type="number" id="outC" min="0" inputmode="decimal" placeholder="0"></label></div>
+                <div class="inval">In (คำนวณ) = <b class="mono" id="outN">–</b> A</div></div>
               <details><summary class="hint" style="cursor:pointer">แปลง MW → A</summary>
                 <div class="fields" style="margin-top:8px;grid-template-columns:1fr 1fr">
                   <div><label class="lbl" for="cP">MW</label><input type="number" id="cP" value="1" step="0.1"></div>
@@ -177,18 +185,15 @@ pre.report{white-space:pre-wrap;font-family:var(--body);font-size:13px;backgroun
                 </div>
               </details>
             </div>
-            <div class="step tie">
-              <div class="stepk"><span class="n">2</span>จุด Tie</div>
-              <div><label class="lbl" for="tiePos">อยู่หลังตัวไหน (ฝั่งที่ปลด)</label><select id="tiePos"><option value="">เลือกตัวที่ปลดก่อน</option></select></div>
-              <div><label class="lbl" for="tieName">ชื่อสวิตช์</label><input type="text" id="tieName" placeholder="เช่น ABS / LBS"></div>
-              <p class="hint" style="margin:0" id="tieHint">ตัวที่อยู่ระหว่าง Tie กับตัวที่ปลด ไฟจะไหลย้อน</p>
-            </div>
             <div class="step recv">
-              <div class="stepk"><span class="n">3</span>อุปกรณ์ที่รับฝาก</div>
+              <div class="stepk"><span class="n">2</span>อุปกรณ์ที่รับฝาก</div>
               <div class="adder"><input type="search" id="recvQ" placeholder="เช่น BQA01VR-102" aria-label="อุปกรณ์ที่รับฝาก" autocomplete="off"><div class="sugg" id="recvS" hidden></div></div>
               <div class="devinfo" id="recvInfo">ตัวที่โหลดจะไหลผ่านหลังปิด Tie</div>
-              <div><label class="lbl" for="recvLoad">โหลดปัจจุบันของตัวนี้ (A)</label><input type="number" id="recvLoad" min="0" inputmode="decimal" placeholder="Peak load"></div>
-              <div><label class="lbl" for="recvIn">Unbalance / In ปัจจุบัน (A)</label><input type="number" id="recvIn" min="0" inputmode="decimal" placeholder="ไม่ระบุได้"></div>
+              <div><span class="lbl">กระแสปัจจุบันของตัวนี้ (A)</span><div class="phase">
+                <label>IA<input type="number" id="recvA" min="0" inputmode="decimal" placeholder="0"></label>
+                <label>IB<input type="number" id="recvB" min="0" inputmode="decimal" placeholder="0"></label>
+                <label>IC<input type="number" id="recvC" min="0" inputmode="decimal" placeholder="0"></label></div>
+                <div class="inval">In (คำนวณ) = <b class="mono" id="recvN">–</b> A</div></div>
             </div>
           </div>
         </div>
@@ -200,12 +205,13 @@ pre.report{white-space:pre-wrap;font-family:var(--body);font-size:13px;backgroun
         </div>
 
         <div class="panel">
-          <h3>2 · ผลตรวจเซ็ตติ้งรายตัว</h3>
+          <h3>ผลตรวจเซ็ตติ้งรายตัว</h3>
           <div id="warnBox" style="display:grid;gap:6px;margin-bottom:10px"></div>
+          <div id="tieAsk" class="note" style="margin-bottom:10px;border-left-color:var(--amber)" hidden><label for="tiePos"><b>หลังจุดปลดมีหลายกิ่ง</b> เลือกตัวสุดท้ายก่อนถึงจุดเชื่อม (Tie)</label><select id="tiePos" style="margin-top:6px;max-width:320px"></select></div>
           <div class="scroll">
             <table class="path"><thead><tr>
-              <th>รหัสสั่งการ</th><th class="num">Min Trip Ph</th><th class="num">โหลดเดิม (A)</th><th class="num">หลังฝาก</th><th>% Min Trip</th>
-              <th class="num">Min Trip G</th><th class="num">In เดิม</th><th>% G</th><th>ผล</th><th></th>
+              <th>รหัสสั่งการ</th><th>กระแสเดิม IA / IB / IC</th><th>หลังฝาก IA / IB / IC</th><th class="num">Min Trip Ph</th><th>% เฟสสูงสุด</th>
+              <th class="num">In หลังฝาก</th><th class="num">Min Trip G</th><th>% G</th><th>ผล</th><th></th>
             </tr></thead><tbody id="pathBody"></tbody></table>
           </div>
           <details style="margin-top:12px" id="upBox"><summary style="cursor:pointer;font-weight:600">+ เพิ่มอุปกรณ์ต้นทางของตัวรับฝากเอง</summary>
@@ -224,7 +230,7 @@ pre.report{white-space:pre-wrap;font-family:var(--body);font-size:13px;backgroun
             <div><label class="lbl" for="thMax">เกิน ≥ %</label><input type="number" id="thMax" value="100" min="10" max="200"></div>
           </div>
           <div style="margin-top:10px"><label class="lbl" for="ifMin">If ต่ำสุดปลายสายที่ฝาก (A)</label><input type="number" id="ifMin" min="0" placeholder="ไม่บังคับ"></div>
-          <p class="hint" style="margin:8px 0 0">% = กระแสหลังฝาก ÷ Minimum Trip · ถ้าใส่ If จะตรวจว่าตัวที่ป้องกันยังเห็นฟอลต์ปลายสาย (If ÷ Min Trip ≥ 1.5)</p>
+          <p class="hint" style="margin:8px 0 0">% Ph = เฟสที่สูงสุดหลังฝาก ÷ Min Trip Phase · % G = In หลังฝาก ÷ Min Trip Ground · In = √(IA²+IB²+IC²−IA·IB−IB·IC−IC·IA) · <span style="display:none"> · </span>ถ้าใส่ If จะตรวจว่าตัวที่ป้องกันยังเห็นฟอลต์ปลายสาย (If ÷ Min Trip ≥ 1.5)</p>
         </div>
         <div class="panel verdict" id="verdict"></div>
       </aside>
@@ -325,7 +331,7 @@ function renderDetail(){
   ${np.length?`<div class="panel"><h3>เนมเพลต</h3><div class="scroll"><table><thead><tr><th>ชุด</th><th>ผลิตภัณฑ์</th><th>Model</th><th>ปีผลิต</th><th>Serial No.</th><th>PEA No.</th><th>สต.</th></tr></thead><tbody>
     ${np.map(x=>`<tr><td><b>${x[0]==="RC"?"Recloser":x[0]==="CR"?"Control":"PT"}</b></td>${x.slice(1).map((c,i)=>`<td class="${i>=3?"mono":""}">${esc(c||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`:""}
   <div class="panel"><h3>สื่อสารและสถานะ</h3><div class="kv">
-    ${TOPO.has(sel)?kv("ต่อจาก (ต้นทาง)",`<span class="mono">${esc(TOPO.get(sel).parent)}</span>`)+kv("อุปกรณ์ถัดไป",`<span class="mono">${esc(kidsOf(sel).join(", ")||"–")}</span>`)+kv("โหลด Peak / In",`<span class="mono">${esc(TOPO.get(sel).load||"–")} / ${esc(TOPO.get(sel).inn||"–")} A</span>`):""}${kv("Side ID",`<span class="mono">${esc(v("Side ID"))}</span>`)}${kv("DNP Address",`<span class="mono">${esc(v("DNP Address"))}</span>`)}${kv("สถานะอุปกรณ์สื่อสาร",esc(v("สถานะอุปกรณ์สื่อสาร")))}
+    ${TOPO.has(sel)?kv("ต่อจาก (ต้นทาง)",`<span class="mono">${esc(TOPO.get(sel).parent)}</span>`)+kv("อุปกรณ์ถัดไป",`<span class="mono">${esc(kidsOf(sel).join(", ")||"–")}</span>`)+kv("กระแส IA / IB / IC",`<span class="mono">${esc(fmt(TOPO.get(sel)))} A · In ${inN(n0(TOPO.get(sel).a),n0(TOPO.get(sel).b),n0(TOPO.get(sel).c)).toFixed(1)} A</span>`):""}${kv("Side ID",`<span class="mono">${esc(v("Side ID"))}</span>`)}${kv("DNP Address",`<span class="mono">${esc(v("DNP Address"))}</span>`)}${kv("สถานะอุปกรณ์สื่อสาร",esc(v("สถานะอุปกรณ์สื่อสาร")))}
     ${kv("อุปกรณ์สื่อสาร",esc(v("อุปกรณ์สื่อสาร")))}${kv("Master",esc(v("Master")))}${kv("Battery Installed",esc(v("Battery Installed Date")))}${kv("อุปกรณ์ที่ชำรุด",esc(v("อุปกรณ์ที่ชำรุด")))}</div>
     ${v("หมายเหตุ")?`<div class="note" style="margin-top:12px"><b>หมายเหตุ:</b> ${esc(v("หมายเหตุ"))}</div>`:""}
     ${v("อื่นๆ")?`<div class="note" style="margin-top:8px"><b>อื่นๆ:</b> ${esc(v("อื่นๆ"))}</div>`:""}
@@ -333,16 +339,17 @@ function renderDetail(){
   $("asOut").onclick=()=>{setOut(sel);switchTab("transfer")};$("asRecv").onclick=()=>{setRecv(sel);switchTab("transfer")};
 }
 
-/* ---------- network (sheet TOPOLOGY: รหัสสั่งการ | ต้นทาง | โหลด Peak (A) | In Peak (A)) ---------- */
+/* ---------- network (sheet TOPOLOGY: รหัสสั่งการ | ต้นทาง | IA | IB | IC  — หรือ โหลด Peak (A) เดิม) ---------- */
 let TOPO=new Map();
 function topoFromRows(rows){
   const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==="ต้นทาง"));
   if(hi<0)throw new Error("ไม่พบคอลัมน์ 'ต้นทาง'");
-  const h=rows[hi].map(c=>String(c).trim());
-  const ic=h.indexOf("รหัสสั่งการ"),ip=h.indexOf("ต้นทาง"),il=h.findIndex(x=>/โหลด/.test(x)),ii=h.findIndex(x=>/^In/i.test(x));
+  const h=rows[hi].map(c=>String(c).trim()), f=re=>h.findIndex(x=>re.test(x));
+  const ic=h.indexOf("รหัสสั่งการ"),ip=h.indexOf("ต้นทาง"),ia=f(/^IA\b/i),ib=f(/^IB\b/i),icc=f(/^IC\b/i),il=f(/โหลด/);
   TOPO=new Map();
-  rows.slice(hi+1).forEach(r=>{const c=String(r[ic]??"").trim();if(!c)return;
-    TOPO.set(c,{parent:String(r[ip]??"").trim(),load:il>=0?String(r[il]??"").trim():"",inn:ii>=0?String(r[ii]??"").trim():""})});
+  rows.slice(hi+1).forEach(r=>{const c=String(r[ic]??"").trim();if(!c)return;const g=i=>i>=0?String(r[i]??"").trim():"";
+    let A=g(ia),B=g(ib),C=g(icc);if(ia<0&&il>=0){A=B=C=g(il)} // only total load given → assume balanced
+    TOPO.set(c,{parent:g(ip),a:A,b:B,c:C})});
   showSrc();
 }
 function showSrc(){$("srcInfo").innerHTML=`${esc(SOURCE)} · <b class="mono">${DB.length}</b> ตัว`+(TOPO.size?` · โครงข่าย <b class="mono">${TOPO.size}</b>`:"")}
@@ -352,9 +359,14 @@ function upChain(c){const chain=[],seen=new Set([c]);let x=TOPO.get(c)?.parent||
   while(x&&TOPO.has(x)&&!seen.has(x)){seen.add(x);chain.push(x);x=TOPO.get(x).parent}return {chain,root:x}}
 function revPath(tie,out){if(!tie||tie===out)return[];const p=[];let x=tie;const seen=new Set();
   while(x&&x!==out&&!seen.has(x)){seen.add(x);p.push(x);x=TOPO.get(x)?.parent}return x===out?p:null}
-const tLoad=c=>TOPO.get(c)?.load??"", tIn=c=>TOPO.get(c)?.inn??"";
+const topoPh=c=>{const t=TOPO.get(c);return t?{a:t.a,b:t.b,c:t.c}:{a:"",b:"",c:""}};
+/* neutral current from 3 phase magnitudes, phases 120° apart */
+const inN=(a,b,c)=>Math.sqrt(Math.max(0,a*a+b*b+c*c-a*b-b*c-c*a));
+const n0=v=>+v||0;
+const pmax=p=>Math.max(n0(p.a),n0(p.b),n0(p.c));
+const fmt=p=>`${n0(p.a).toFixed(0)} / ${n0(p.b).toFixed(0)} / ${n0(p.c).toFixed(0)}`;
 
-/* ---------- load transfer: open OUT → close tie (behind TIE) → RECV + its upstream carry the load ---------- */
+/* ---------- load transfer: open OUT → tie (behind TIE) → RECV + its upstream carry the load ---------- */
 let OUT="", RECV="", TIE="", UPS=[];
 const mpOf=c=>num(val(byCode(c)||{},"Minimum Trip Phase")), mgOf=c=>num(val(byCode(c)||{},"Minimum Trip Ground"));
 function picker(inpId,boxId,onPick){
@@ -373,47 +385,53 @@ document.addEventListener("click",e=>{if(!e.target.closest(".adder"))["outS","re
 function devLine(c){const r=byCode(c),t=TOPO.get(c);
   return `<b>${esc(c)}</b>${r?" · "+esc(val(r,"จุดติดตั้ง")):""}<br>Min Trip Ph <b>${esc(r?val(r,"Minimum Trip Phase")||"–":"–")}</b> A · G <b>${esc(r?val(r,"Minimum Trip Ground")||"–":"–")}</b> A`
     +(t?`<br>ต่อจาก <b>${esc(t.parent||"–")}</b>`:`<br><span style="color:var(--amber)">ไม่มีในชีต TOPOLOGY</span>`)}
+const getPh=p=>({a:$(p+"A").value,b:$(p+"B").value,c:$(p+"C").value});
+const setPh=(p,v)=>{$(p+"A").value=v.a;$(p+"B").value=v.b;$(p+"C").value=v.c};
 function setOut(c){
   OUT=c||"";$("outQ").value=OUT;$("outInfo").innerHTML=OUT?devLine(OUT):"โหลดด้านหลังตัวนี้คือโหลดที่จะฝาก";
-  if(OUT&&TOPO.has(OUT)){$("outLoad").value=tLoad(OUT);$("outIn").value=tIn(OUT)}
-  const opts=OUT?[OUT,...descendants(OUT)]:[];
-  $("tiePos").innerHTML=opts.length?opts.map(c=>`<option value="${esc(c)}">${esc(c)}${c===OUT?" (หลังตัวที่ปลดทันที)":""}</option>`).join(""):'<option value="">เลือกตัวที่ปลดก่อน</option>';
-  TIE=OUT; $("tiePos").value=TIE;
+  if(OUT&&TOPO.has(OUT))setPh("out",topoPh(OUT));
+  // where is the tie? no devices behind → right after OUT; single line → after the last one; branches → ask
+  const below=OUT?descendants(OUT):[];
+  const linear=below.every(x=>kidsOf(x).length<=1)&&kidsOf(OUT).length<=1;
+  const ask=below.length>0&&!linear;
+  TIE=!below.length?OUT:linear?below.find(x=>!kidsOf(x).length):"";
+  $("tieAsk").hidden=!ask;
+  if(ask)$("tiePos").innerHTML='<option value="">— เลือก —</option>'+[OUT,...below].map(x=>`<option value="${esc(x)}">${esc(x)}${x===OUT?" (Tie อยู่ติดหลังจุดปลด)":kidsOf(x).length?"":" · ปลายกิ่ง"}</option>`).join("");
   if(OUT&&OUT===RECV)setRecv("");else renderTransfer();
 }
 function setRecv(c){
   RECV=c||"";$("recvQ").value=RECV;$("recvInfo").innerHTML=RECV?devLine(RECV):"ตัวที่โหลดจะไหลผ่านหลังปิด Tie";
-  if(RECV&&TOPO.has(RECV)){$("recvLoad").value=tLoad(RECV);$("recvIn").value=tIn(RECV);
-    UPS=upChain(RECV).chain.map(a=>({code:a,load:tLoad(a),inn:tIn(a),auto:true}))}
+  if(RECV&&TOPO.has(RECV)){setPh("recv",topoPh(RECV));UPS=upChain(RECV).chain.map(x=>({code:x,...topoPh(x),auto:true}))}
   else UPS=UPS.filter(u=>!u.auto&&u.code!==RECV);
   renderTransfer();
 }
 $("tiePos").addEventListener("change",e=>{TIE=e.target.value;renderTransfer()});
-function addUp(c){if(!c||c===RECV||c===OUT||UPS.some(u=>u.code===c))return;UPS.push({code:c,load:tLoad(c),inn:tIn(c)});$("upBox").open=true;renderTransfer()}
+function addUp(c){if(!c||c===RECV||c===OUT||UPS.some(u=>u.code===c))return;UPS.push({code:c,...topoPh(c)});$("upBox").open=true;renderTransfer()}
 function addPath(c){if(!RECV)setRecv(c);else addUp(c)}
 
 function calc(){
-  const add=+$("outLoad").value||0, addIn=+$("outIn").value||0, W=+$("thWarn").value||80, M=+$("thMax").value||100;
-  const chain=RECV?[{code:RECV,load:$("recvLoad").value,inn:$("recvIn").value,role:"ตัวรับฝาก"},...UPS.map(u=>({...u,role:"ต้นทางตัวรับ"}))]:[];
+  const add=getPh("out"), W=+$("thWarn").value||80, M=+$("thMax").value||100;
+  const chain=RECV?[{code:RECV,...getPh("recv"),role:"ตัวรับฝาก"},...UPS.map(u=>({...u,role:"ต้นทางตัวรับ"}))]:[];
   const res=chain.map(p=>{const mp=mpOf(p.code),mg=mgOf(p.code);
-    const tot=(+p.load||0)+add, totIn=(+p.inn||0)+addIn, pp=mp?tot/mp*100:null, pg=mg&&(p.inn!==""||addIn)?totIn/mg*100:null;
+    const after={a:n0(p.a)+n0(add.a),b:n0(p.b)+n0(add.b),c:n0(p.c)+n0(add.c)};
+    const mx=pmax(after), nn=inN(after.a,after.b,after.c);
+    const pp=mp?mx/mp*100:null, pg=mg?nn/mg*100:null;
     const worst=Math.max(pp??0,pg??0), st=mp==null?"na":worst>=M?"bad":worst>=W?"warn":"ok";
-    return {...p,mp,mg,tot,totIn,pp,pg,st,loc:val(byCode(p.code)||{},"จุดติดตั้ง")}});
-  const rev=OUT?revPath(TIE,OUT):[];
+    return {...p,after,mx,nn,mp,mg,pp,pg,st,loc:val(byCode(p.code)||{},"จุดติดตั้ง")}});
+  const rev=OUT&&TIE?revPath(TIE,OUT):[];
   const below=OUT?descendants(OUT):[];
-  const side=below.filter(c=>!(rev||[]).includes(c));
-  return {res,add,addIn,W,M,rev:rev||[],revBad:rev===null,side};
+  const side=TIE?below.filter(c=>!(rev||[]).includes(c)):[];
+  return {res,add,W,M,rev:rev||[],side};
 }
 function warnings(){
   const w=[];
-  if(OUT&&RECV&&(RECV===OUT||descendants(OUT).includes(RECV)))w.push(["bad",`${RECV} อยู่หลัง ${OUT} ฝากไปตัวนี้ไม่ได้ ต้องเลือกตัวรับจากวงจรอื่น`]);
-  if(OUT&&RECV&&TOPO.has(OUT)&&upChain(RECV).chain.includes(OUT))w.push(["bad",`${RECV} อยู่หลัง ${OUT} ฝากไปตัวนี้ไม่ได้`]);
-  if(OUT&&!TOPO.has(OUT))w.push(["warn",`${OUT} ยังไม่มีในชีต TOPOLOGY กรอกโหลดเอง และเว็บหาตัวที่ไฟย้อนให้ไม่ได้`]);
+  if(OUT&&RECV&&(RECV===OUT||descendants(OUT).includes(RECV)||upChain(RECV).chain.includes(OUT)))w.push(["bad",`${RECV} อยู่หลัง ${OUT} ฝากไปตัวนี้ไม่ได้ ต้องเลือกตัวรับจากวงจรอื่น`]);
+  if(OUT&&!TOPO.has(OUT))w.push(["warn",`${OUT} ยังไม่มีในชีต TOPOLOGY กรอกกระแสเอง และเว็บหาตัวที่ไฟย้อนให้ไม่ได้`]);
   if(RECV&&!TOPO.has(RECV))w.push(["warn",`${RECV} ยังไม่มีในชีต TOPOLOGY เพิ่มอุปกรณ์ต้นทางของตัวรับเองได้ด้านล่าง`]);
-  const chk=c=>{const t=TOPO.get(c);if(!t)return;const p=TOPO.get(t.parent);if(p&&num(t.load)!=null&&num(p.load)!=null&&num(t.load)>num(p.load))
-    w.push(["warn",`ข้อมูลโหลดน่าสงสัย: ${c} (${t.load} A) มากกว่าตัวต้นทาง ${t.parent} (${p.load} A)`])};
+  const chk=c=>{const t=TOPO.get(c);if(!t)return;const p=TOPO.get(t.parent);if(!p)return;
+    ["a","b","c"].forEach((k,i)=>{if(num(t[k])!=null&&num(p[k])!=null&&num(t[k])>num(p[k]))w.push(["warn",`ข้อมูลกระแสน่าสงสัย: ${c} I${"ABC"[i]} ${t[k]} A มากกว่าตัวต้นทาง ${t.parent} (${p[k]} A)`])})};
   [OUT,...(OUT?descendants(OUT):[]),RECV,...UPS.map(u=>u.code)].filter(Boolean).forEach(chk);
-  if(RECV&&TOPO.has(RECV)){const ids=[RECV,...UPS.map(u=>u.code)];ids.filter(c=>!byCode(c)).forEach(c=>w.push(["warn",`${c} ไม่มีค่าเซ็ตติ้งในชีตหลัก`]))}
+  [RECV,...UPS.map(u=>u.code)].filter(c=>c&&!byCode(c)).forEach(c=>w.push(["warn",`${c} ไม่มีค่าเซ็ตติ้งในชีตหลัก`]));
   return [...new Map(w.map(x=>[x[1],x])).values()];
 }
 const PILL={bad:'<span class="pill bad">เกิน → Bypass</span>',warn:'<span class="pill warn">เฝ้าระวัง</span>',ok:'<span class="pill ok">ผ่าน</span>',na:'<span class="pill">ไม่มีค่าเซ็ตติ้ง</span>'};
@@ -421,19 +439,20 @@ const PILL={bad:'<span class="pill bad">เกิน → Bypass</span>',warn:'<s
 function renderTransfer(){
   const {res,rev,side}=calc(), tb=$("pathBody");
   const revRows=rev.map(c=>`<tr><td><div class="role">ไฟไหลย้อนทาง</div><b class="mono">${esc(c)}</b><div class="hint loc">${esc(val(byCode(c)||{},"จุดติดตั้ง"))}</div></td>
-    <td class="num">${mpOf(c)??"–"}</td><td colspan="5" class="hint">อยู่ระหว่าง Tie กับ ${esc(OUT)} ทิศกระแสกลับด้าน</td><td></td><td><span class="pill bad">ไฟย้อน → Bypass</span></td><td></td></tr>`).join("");
+    <td colspan="2" class="hint">อยู่ระหว่าง Tie กับ ${esc(OUT)} ทิศกระแสกลับด้าน</td><td class="num">${mpOf(c)??"–"}</td><td></td><td></td><td class="num">${mgOf(c)??"–"}</td><td></td><td><span class="pill bad">ไฟย้อน → Bypass</span></td><td></td></tr>`).join("");
   const sideRow=side.length?`<tr><td colspan="10" class="hint">อยู่หลัง ${esc(OUT)} แต่ไม่อยู่บนทางไป Tie (ไฟไหลทางเดิม ไม่ต้อง Bypass): <span class="mono">${side.map(esc).join(", ")}</span></td></tr>`:"";
+  const ph3=i=>`<div class="ph3">${["a","b","c"].map(k=>`<input type="number" min="0" inputmode="decimal" data-i="${i}" data-k="${k}" value="${esc(UPS[i][k])}" placeholder="I${k.toUpperCase()}" aria-label="I${k.toUpperCase()}">`).join("")}</div>`;
   tb.innerHTML=(res.length?res.map((x,i)=>`<tr><td><div class="role">${x.role}</div><b class="mono">${esc(x.code)}</b><div class="hint loc">${esc(x.loc)}</div></td>
+    <td>${i===0?'<span class="mono" id="old-0"></span>':ph3(i-1)}</td>
+    <td class="mono" id="aft-${i}"></td>
     <td class="num">${x.mp??"–"}</td>
-    <td class="num">${i===0?'<div class="mono" id="ld-0"></div>':`<input type="number" min="0" inputmode="decimal" data-i="${i-1}" data-k="load" value="${esc(x.load)}" placeholder="0">`}</td>
-    <td class="num"><b id="tot-${i}"></b></td>
     <td><span class="mono" id="pp-${i}"></span><div class="bar"><i id="bar-${i}"></i></div></td>
+    <td class="num"><b id="nn-${i}"></b></td>
     <td class="num">${x.mg??"–"}</td>
-    <td class="num">${i===0?'<div class="mono" id="li-0"></div>':`<input type="number" min="0" inputmode="decimal" data-i="${i-1}" data-k="inn" value="${esc(x.inn)}" placeholder="0">`}</td>
     <td><span class="mono" id="pg-${i}"></span></td>
     <td id="st-${i}"></td>
     <td style="white-space:nowrap">${i===0||x.auto?"":`<button class="ico" data-mv="${i-1}" data-d="-1" aria-label="เลื่อนขึ้น">↑</button><button class="ico" data-mv="${i-1}" data-d="1" aria-label="เลื่อนลง">↓</button><button class="ico" data-rm="${i-1}" aria-label="ลบ">✕</button>`}</td></tr>`).join("")
-    :'<tr><td colspan="10" class="empty">เลือกอุปกรณ์ที่รับฝากในช่อง 3 เพื่อดูผล</td></tr>')+revRows+sideRow;
+    :'<tr><td colspan="10" class="empty">เลือกอุปกรณ์ที่รับฝากเพื่อดูผล</td></tr>')+revRows+sideRow;
   const manual=RECV&&!TOPO.has(RECV);
   $("upBox").hidden=!manual;
   const fd=manual?feeder(RECV):"";
@@ -444,12 +463,16 @@ function renderTransfer(){
 }
 function updateCalc(){
   const C=calc(), {res}=C;
-  res.forEach((x,i)=>{if(!$("tot-"+i))return;
+  const o=getPh("out"),r=getPh("recv");
+  $("outN").textContent=(o.a||o.b||o.c)?inN(n0(o.a),n0(o.b),n0(o.c)).toFixed(1):"–";
+  $("recvN").textContent=(r.a||r.b||r.c)?inN(n0(r.a),n0(r.b),n0(r.c)).toFixed(1):"–";
+  res.forEach((x,i)=>{if(!$("aft-"+i))return;
     const col=x.st==="bad"?"var(--red)":x.st==="warn"?"var(--amber)":"var(--green)";
-    if(i===0){$("ld-0").textContent=(+x.load||0);$("li-0").textContent=x.inn===""?"–":(+x.inn||0)}
-    $("tot-"+i).textContent=x.tot.toFixed(0);
+    if(i===0)$("old-0").textContent=fmt(x);
+    $("aft-"+i).textContent=fmt(x.after);
     $("pp-"+i).textContent=x.pp!=null?x.pp.toFixed(0)+"%":"–";
     const bar=$("bar-"+i);bar.style.width=Math.min(x.pp??0,100)+"%";bar.style.background=col;
+    $("nn-"+i).textContent=x.nn.toFixed(1);
     $("pg-"+i).textContent=x.pg!=null?x.pg.toFixed(0)+"%":"–";
     $("st-"+i).innerHTML=PILL[x.st];});
   renderSLD(C); renderVerdict(C);
@@ -458,32 +481,36 @@ function renderSLD({res,add,rev}){
   const node=(cls,sym,nm,sub)=>`<div class="node ${cls}"><div class="sym">${sym}</div><div class="nm">${nm}</div><div class="sub2">${sub}</div></div>`;
   const rootA=OUT&&TOPO.has(OUT)?(upChain(OUT).root||TOPO.get(OUT).parent):"";
   const rootB=RECV&&TOPO.has(RECV)?upChain(RECV).root:"";
+  const mx=pmax(add);
   let h=node("","▤",esc(rootA||"สถานีเดิม"),"สถานีเดิม")+'<div class="wire dead"></div>'
     +node("open","O",esc(OUT||"ตัวที่ปลด"),"เปิด")+'<div class="wire dead"></div>'
-    +node("load","⚡",add?add+" A":"โหลด","ที่ฝาก")+'<div class="wire live"></div>';
+    +node("load","⚡",mx?fmt(add):"โหลด","ที่ฝาก (A)")+'<div class="wire live"></div>';
   [...rev].reverse().forEach(c=>{h+=node("bad","R",esc(c),"ไฟย้อน · Bypass")+'<div class="wire live"></div>'});
-  h+=node("close","T",esc($("tieName").value||"Tie"),"ปิด")+'<div class="wire live"></div>';
+  h+=node("close","T","Tie","ปิด")+'<div class="wire live"></div>';
   if(res.length)res.forEach(x=>{h+=node(x.st,"R",esc(x.code),x.pp!=null?x.pp.toFixed(0)+"% · "+(x.st==="bad"?"Bypass":x.st==="warn"?"ระวัง":"ผ่าน"):"–")+'<div class="wire live"></div>'});
   else h+=node("","R","ตัวรับฝาก","")+'<div class="wire live"></div>';
   h+=node("","▤",esc(rootB||"สถานีใหม่"),"สถานีใหม่");
   $("sld").innerHTML=h;
 }
-function renderVerdict({res,add,addIn,W,M,rev,revBad}){
+function renderVerdict({res,add,W,M,rev}){
   const v=$("verdict"),H3='<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0">ผลวิเคราะห์</h3>';
-  if(!OUT||!RECV||!add){v.innerHTML=H3+`<p class="hint" style="margin:0">ยังขาด: ${[!OUT&&"อุปกรณ์ที่จะปลด",!add&&"โหลดหลังอุปกรณ์ที่ปลด",!RECV&&"อุปกรณ์ที่รับฝาก"].filter(Boolean).join(", ")}</p>`;return}
+  const has=pmax(add)>0;
+  if(!OUT||!RECV||!has){v.innerHTML=H3+`<p class="hint" style="margin:0">ยังขาด: ${[!OUT&&"อุปกรณ์ที่จะปลด",!has&&"กระแสหลังอุปกรณ์ที่ปลด",!RECV&&"อุปกรณ์ที่รับฝาก"].filter(Boolean).join(", ")}</p>`;return}
   if(warnings().some(w=>w[0]==="bad")){v.innerHTML=H3+'<div class="big" style="color:var(--red)">ฝากแบบนี้ไม่ได้</div><p class="hint" style="margin:0">ดูข้อความแจ้งเตือนในตารางผลตรวจ</p>';return}
+  if(!TIE){v.innerHTML=H3+'<div class="big" style="color:var(--amber)">เลือกตำแหน่ง Tie</div><p class="hint" style="margin:0">หลังจุดปลดมีหลายกิ่ง เลือกในกล่องสีเหลืองเหนือตารางผลตรวจ</p>';return}
   const over=res.filter(x=>x.st==="bad"),warn=res.filter(x=>x.st==="warn");
   const prot=res.find(x=>x.st!=="bad");
   const omp=mpOf(OUT),omg=mgOf(OUT),ifm=+$("ifMin").value||0;
   const allBy=[...rev,...over.map(x=>x.code)];
+  const addN=inN(n0(add.a),n0(add.b),n0(add.c));
   let sens="";
   if(ifm&&prot&&prot.mp){const k=ifm/prot.mp;sens=k>=1.5?`<div><span class="pill ok">เห็นฟอลต์ปลายสาย</span> <span class="hint">If/Min Trip = ${k.toFixed(1)} เท่า</span></div>`:`<div><span class="pill bad">อาจไม่เห็นฟอลต์ปลายสาย</span> <span class="hint">If/Min Trip ของ ${esc(prot.code)} = ${k.toFixed(1)} เท่า (ควร ≥ 1.5)</span></div>`}
   const cmp=`<div class="cmp"><div class="box"><div class="role">เดิมป้องกันโดย</div><div class="mono">${esc(OUT)}</div><b>${omp??"–"}</b>/<b>${omg??"–"}</b> A</div><div>→</div>
     <div class="box"><div class="role">ระหว่างฝากป้องกันโดย</div><div class="mono">${prot?esc(prot.code):"CB สถานี"}</div>${prot?`<b>${prot.mp??"–"}</b>/<b>${prot.mg??"–"}</b> A`:'<span class="hint">ตรวจเซ็ตติ้ง CB</span>'}</div></div>`;
-  const line=x=>`- ${x.code} (${x.role}): ${(+x.load||0)} + ${add} = ${x.tot.toFixed(0)} A / Min Trip ${x.mp??"-"} A = ${x.pp!=null?x.pp.toFixed(0):"-"}%${x.pg!=null?` | In ${x.totIn.toFixed(0)} A / ${x.mg} A = ${x.pg.toFixed(0)}%`:""}`;
-  let rpt=`ปลด ${OUT} ฝากโหลด ${add} A${addIn?` (In ${addIn} A)`:""} ผ่าน ${$("tieName").value||"Tie"} (หลัง ${TIE}) ไปที่ ${RECV}\nเกณฑ์: เฝ้าระวัง ≥${W}%, เกิน ≥${M}% ของ Minimum Trip\n\nตรวจโหลดฝั่งรับ:\n`+res.map(line).join("\n");
+  const line=x=>`- ${x.code} (${x.role}): IA/IB/IC ${fmt(x)} → ${fmt(x.after)} A | เฟสสูงสุด ${x.mx.toFixed(0)}/${x.mp??"-"} A = ${x.pp!=null?x.pp.toFixed(0):"-"}% | In ${x.nn.toFixed(1)}/${x.mg??"-"} A = ${x.pg!=null?x.pg.toFixed(0):"-"}%`;
+  let rpt=`ปลด ${OUT} ฝากโหลด IA/IB/IC ${fmt(add)} A (In ${addN.toFixed(1)} A) ไปที่ ${RECV}${TIE!==OUT?` (Tie หลัง ${TIE})`:""}\nเกณฑ์: เฝ้าระวัง ≥${W}%, เกิน ≥${M}% ของ Minimum Trip\n\nตรวจโหลดฝั่งรับ:\n`+res.map(line).join("\n");
   if(rev.length)rpt+=`\n\nไฟไหลย้อนทาง (Bypass): ${rev.join(", ")}`;
-  rpt+=allBy.length?`\n\nสรุป: ต้อง Bypass ${allBy.join(", ")} ก่อนปิด Tie`+(prot?`\nช่วงที่ฝากจะได้รับการป้องกันจาก ${prot.code} (Min Trip ${prot.mp} A)`:"\nช่วงที่ฝากจะเหลือการป้องกันจาก CB สถานี"):"\n\nสรุป: ฝากโหลดได้ ไม่ต้อง Bypass";
+  rpt+=allBy.length?`\n\nสรุป: ต้อง Bypass ${allBy.join(", ")} ก่อนปิด Tie`+(prot?`\nช่วงที่ฝากจะได้รับการป้องกันจาก ${prot.code} (Min Trip ${prot.mp}/${prot.mg??"-"} A)`:"\nช่วงที่ฝากจะเหลือการป้องกันจาก CB สถานี"):"\n\nสรุป: ฝากโหลดได้ ไม่ต้อง Bypass";
   if(warn.length)rpt+=`\nเฝ้าระวังกระแสที่ ${warn.map(x=>x.code).join(", ")}`;
   if(ifm&&prot&&prot.mp)rpt+=`\nIf ปลายสาย ${ifm} A / Min Trip ${prot.mp} A = ${(ifm/prot.mp).toFixed(1)} เท่า`;
   const grp=(t,list)=>list.length?`<div><div class="role">${t}</div><div class="bypass">${list.map(esc).join("<br>")}</div></div>`:"";
@@ -493,7 +520,7 @@ function renderVerdict({res,add,addIn,W,M,rev,revBad}){
     +(warn.length?`<div><span class="pill warn">เฝ้าระวัง</span> <span class="mono">${warn.map(x=>esc(x.code)).join(", ")}</span></div>`:"")
     +cmp+sens
     +`<pre class="report" id="rpt">${esc(rpt)}</pre><button class="btn" id="copyRpt" type="button">คัดลอกสรุป</button>
-    <p class="hint" style="margin:0">ใช้โหลด Peak และเผื่อ Cold Load Pickup ตอนคืนโหลด</p>`;
+    <p class="hint" style="margin:0">ใช้กระแส Peak และเผื่อ Cold Load Pickup ตอนคืนโหลด</p>`;
   $("copyRpt").onclick=async e=>{try{await navigator.clipboard.writeText(rpt);e.target.textContent="คัดลอกแล้ว"}catch(_){const sl=getSelection(),rg=document.createRange();rg.selectNodeContents($("rpt"));sl.removeAllRanges();sl.addRange(rg);e.target.textContent="เลือกข้อความแล้ว กด Ctrl+C"}};
 }
 $("pathBody").addEventListener("input",e=>{const t=e.target;if(t.dataset.i==null)return;UPS[+t.dataset.i][t.dataset.k]=t.value;updateCalc()});
@@ -502,11 +529,11 @@ $("pathBody").addEventListener("click",e=>{const b=e.target.closest("button");if
   if(b.dataset.mv!=null){const i=+b.dataset.mv,j=i+ +b.dataset.d;if(j>=0&&j<UPS.length)[UPS[i],UPS[j]]=[UPS[j],UPS[i]]}
   renderTransfer()});
 $("sameFeeder").addEventListener("click",e=>{const b=e.target.closest(".chip");if(b)addUp(b.dataset.c)});
-["outLoad","outIn","recvLoad","recvIn","thWarn","thMax","tieName","ifMin"].forEach(id=>$(id).addEventListener("input",updateCalc));
+["outA","outB","outC","recvA","recvB","recvC","thWarn","thMax","ifMin"].forEach(id=>$(id).addEventListener("input",updateCalc));
 
 /* MW → A */
 function conv(){const P=+$("cP").value||0,V=+$("cV").value,pf=+$("cPf").value||1;const I=P*1000/(Math.sqrt(3)*V*pf);$("cOut").textContent=I.toFixed(1)+" A";return I}
-["cP","cV","cPf"].forEach(id=>$(id).addEventListener("input",conv));$("cUse").onclick=()=>{$("outLoad").value=Math.round(conv());updateCalc()};
+["cP","cV","cPf"].forEach(id=>$(id).addEventListener("input",conv));$("cUse").onclick=()=>{const v=Math.round(conv());setPh("out",{a:v,b:v,c:v});updateCalc()};
 
 /* tabs */
 function switchTab(t){["lookup","transfer"].forEach(n=>{$("tab-"+n).setAttribute("aria-selected",n===t);$("view-"+n).hidden=n!==t})}
@@ -543,9 +570,9 @@ async function boot(){
   if(csv){try{fromRows(parseCSV(csv),"ไฟล์ "+name+" (โหลด Sheet ไม่ได้)");return}catch(_){}}
   fromRows([H,...SAMPLE],"ข้อมูลตัวอย่าง (โหลด Sheet ไม่ได้)");
   // ตัวอย่างโครงข่ายสมมติ (ใช้เมื่อโหลด Sheet ไม่ได้เท่านั้น)
-  TOPO=new Map([["TCA04R-02",{parent:"TCA04",load:"120",inn:"15"}],["CDA07VR-104",{parent:"TCA04R-02",load:"70",inn:"10"}],["WIR02R-04",{parent:"CDA07VR-104",load:"30",inn:"5"}],["CDA06VR-102",{parent:"TCA04R-02",load:"40",inn:"6"}],
-    ["TKB06VR-101",{parent:"TKB06",load:"150",inn:"25"}],["NUA04VR-104",{parent:"TKB06VR-101",load:"60",inn:"10"}]]);showSrc();
-  $("tieName").value="ABS ตัวอย่าง";setOut("TCA04R-02");TIE="WIR02R-04";$("tiePos").value=TIE;setRecv("NUA04VR-104");
+  TOPO=new Map([["TCA04R-02",{parent:"TCA04",a:"120",b:"110",c:"125"}],["CDA07VR-104",{parent:"TCA04R-02",a:"70",b:"60",c:"75"}],["WIR02R-04",{parent:"CDA07VR-104",a:"30",b:"20",c:"35"}],["CDA06VR-102",{parent:"TCA04R-02",a:"40",b:"30",c:"45"}],
+    ["TKB06VR-101",{parent:"TKB06",a:"150",b:"140",c:"155"}],["NUA04VR-104",{parent:"TKB06VR-101",a:"60",b:"50",c:"65"}]]);showSrc();
+  setOut("TCA04R-02");TIE="WIR02R-04";$("tiePos").value=TIE;setRecv("NUA04VR-104");
 }
 conv();
 boot();
