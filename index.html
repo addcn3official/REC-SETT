@@ -80,17 +80,22 @@ th.num{text-align:right}
 .sugg{position:absolute;left:0;right:0;top:100%;z-index:4;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-top:4px;max-height:260px;overflow:auto;box-shadow:0 8px 24px rgb(0 0 0/.15)}
 .sugg button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--fg);font:inherit;padding:8px 12px;cursor:pointer}
 .sugg button:hover,.sugg button:focus{background:var(--sunk)}
-.path td input{width:90px;padding:5px 7px;text-align:right;font-family:var(--mono)}
+.tmain,.tside{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);min-width:0}
+.tmain>.panel,.tside>.panel{min-width:0}
+.verdict>*{min-width:0;overflow-wrap:anywhere}
+.path .loc{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.path td input{width:76px;padding:5px 7px;text-align:right;font-family:var(--mono)}
 .bar{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;min-width:70px;margin-top:4px}
 .bar i{display:block;height:100%}
 .ico{border:0;background:transparent;color:var(--muted);cursor:pointer;font:inherit;padding:2px 5px;border-radius:4px}
 .ico:hover{color:var(--fg);background:var(--sunk)}
-.verdict{display:grid;gap:10px}
+.verdict{display:grid;gap:10px;grid-template-columns:minmax(0,1fr)}
 .verdict .big{font-size:20px;font-weight:700}
 .bypass{font-family:var(--mono);font-weight:600;font-size:17px;color:var(--red)}
 pre.report{white-space:pre-wrap;font-family:var(--body);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;margin:0;max-height:300px;overflow:auto}
 .hint{font-size:13px;color:var(--muted)}
 .flow{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+@media (max-width:1100px){.tgrid{grid-template-columns:1fr}}
 @media (max-width:820px){.lookup,.tgrid{grid-template-columns:1fr}.list{max-height:40vh}.titlebar h2{font-size:22px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -128,7 +133,7 @@ pre.report{white-space:pre-wrap;font-family:var(--body);font-size:13px;backgroun
 
   <section id="view-transfer" hidden>
     <div class="tgrid">
-      <div style="display:grid;gap:16px;min-width:0">
+      <div class="tmain">
         <div class="panel">
           <h3>1 · ข้อมูลการฝากโหลด</h3>
           <div class="fields">
@@ -164,7 +169,7 @@ pre.report{white-space:pre-wrap;font-family:var(--body);font-size:13px;backgroun
         </div>
       </div>
 
-      <aside style="display:grid;gap:16px">
+      <aside class="tside">
         <div class="panel">
           <h3>เกณฑ์</h3>
           <div class="fields" style="grid-template-columns:1fr 1fr">
@@ -282,22 +287,38 @@ function renderDetail(){
 
 /* ---------- load transfer ---------- */
 function addPath(c){if(!c||path.some(p=>p.code===c))return;path.push({code:c,load:"",inn:""});renderPath()}
-function renderPath(){
-  const tb=$("pathBody"), add=+$("tLoad").value||0, addIn=+$("tIn").value||0, W=+$("thWarn").value||80, M=+$("thMax").value||100;
-  $("flowCodes").textContent=path.length?path.map(p=>p.code).join(" → "):"ยังไม่มีอุปกรณ์";
+function calc(){
+  const add=+$("tLoad").value||0, addIn=+$("tIn").value||0, W=+$("thWarn").value||80, M=+$("thMax").value||100;
   const res=path.map(p=>{const r=byCode(p.code)||{},mp=num(val(r,"Minimum Trip Phase")),mg=num(val(r,"Minimum Trip Ground"));
     const tot=(+p.load||0)+add, totIn=(+p.inn||0)+addIn, pp=mp?tot/mp*100:null, pg=mg?totIn/mg*100:null;
     const worst=Math.max(pp??0,pg??0), st=mp==null?"na":worst>=M?"bad":worst>=W?"warn":"ok";
     return {...p,mp,mg,tot,totIn,pp,pg,st,loc:val(r,"จุดติดตั้ง")}});
-  tb.innerHTML=res.length?res.map((x,i)=>{const col=x.st==="bad"?"var(--red)":x.st==="warn"?"var(--amber)":"var(--green)";
-    return `<tr><td class="mono">${i+1}</td><td><b class="mono">${esc(x.code)}</b><div class="hint" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.loc)}</div></td>
-    <td class="num">${x.mp??"–"}</td><td class="num"><input type="number" min="0" id="ld-${i}" data-i="${i}" data-k="load" value="${esc(x.load)}" placeholder="0"></td>
-    <td class="num"><b>${x.tot.toFixed(0)}</b></td>
-    <td>${x.pp!=null?`<span class="mono">${x.pp.toFixed(0)}%</span><div class="bar"><i style="width:${Math.min(x.pp,100)}%;background:${col}"></i></div>`:"–"}</td>
-    <td class="num">${x.mg??"–"}</td><td class="num"><input type="number" min="0" id="in-${i}" data-i="${i}" data-k="inn" value="${esc(x.inn)}" placeholder="0"><div class="hint">${x.pg!=null?x.pg.toFixed(0)+"%":""}</div></td>
-    <td>${x.st==="bad"?'<span class="pill bad">เกิน</span>':x.st==="warn"?'<span class="pill warn">เฝ้าระวัง</span>':x.st==="ok"?'<span class="pill ok">ผ่าน</span>':'<span class="pill">ไม่มีค่า</span>'}</td>
-    <td style="white-space:nowrap"><button class="ico" data-mv="${i}" data-d="-1" aria-label="เลื่อนขึ้น">↑</button><button class="ico" data-mv="${i}" data-d="1" aria-label="เลื่อนลง">↓</button><button class="ico" data-rm="${i}" aria-label="ลบ">✕</button></td></tr>`}).join("")
+  return {res,add,addIn,W,M};
+}
+const PILL={bad:'<span class="pill bad">เกิน</span>',warn:'<span class="pill warn">เฝ้าระวัง</span>',ok:'<span class="pill ok">ผ่าน</span>',na:'<span class="pill">ไม่มีค่า</span>'};
+/* rebuild table only when the list changes; typing updates numbers in place */
+function renderPath(){
+  const tb=$("pathBody"), {res}=calc();
+  $("flowCodes").textContent=path.length?path.map(p=>p.code).join(" → "):"ยังไม่มีอุปกรณ์";
+  tb.innerHTML=res.length?res.map((x,i)=>`<tr><td class="mono">${i+1}</td><td><b class="mono">${esc(x.code)}</b><div class="hint loc">${esc(x.loc)}</div></td>
+    <td class="num">${x.mp??"–"}</td><td class="num"><input type="number" min="0" inputmode="decimal" id="ld-${i}" data-i="${i}" data-k="load" value="${esc(x.load)}" placeholder="0"></td>
+    <td class="num"><b id="tot-${i}"></b></td>
+    <td><span class="mono" id="pp-${i}"></span><div class="bar"><i id="bar-${i}"></i></div></td>
+    <td class="num">${x.mg??"–"}</td><td class="num"><input type="number" min="0" inputmode="decimal" id="in-${i}" data-i="${i}" data-k="inn" value="${esc(x.inn)}" placeholder="0"><div class="hint" id="pg-${i}"></div></td>
+    <td id="st-${i}"></td>
+    <td style="white-space:nowrap"><button class="ico" data-mv="${i}" data-d="-1" aria-label="เลื่อนขึ้น">↑</button><button class="ico" data-mv="${i}" data-d="1" aria-label="เลื่อนลง">↓</button><button class="ico" data-rm="${i}" aria-label="ลบ">✕</button></td></tr>`).join("")
     :'<tr><td colspan="10" class="empty">ค้นหาแล้วเพิ่มรีโคลสเซอร์ของวงจรที่รับฝาก หรือกด "+ เพิ่มเข้าการวิเคราะห์" จากหน้าดูค่าอุปกรณ์</td></tr>';
+  updateCalc();
+}
+function updateCalc(){
+  const {res,add,addIn,W,M}=calc();
+  res.forEach((x,i)=>{if(!$("tot-"+i))return;
+    const col=x.st==="bad"?"var(--red)":x.st==="warn"?"var(--amber)":"var(--green)";
+    $("tot-"+i).textContent=x.tot.toFixed(0);
+    $("pp-"+i).textContent=x.pp!=null?x.pp.toFixed(0)+"%":"–";
+    const bar=$("bar-"+i);bar.style.width=Math.min(x.pp??0,100)+"%";bar.style.background=col;
+    $("pg-"+i).textContent=x.pg!=null?x.pg.toFixed(0)+"%":"";
+    $("st-"+i).innerHTML=PILL[x.st];});
   renderVerdict(res,add,addIn,W,M);
 }
 function renderVerdict(res,add,addIn,W,M){
@@ -317,13 +338,12 @@ function renderVerdict(res,add,addIn,W,M){
     <p class="hint" style="margin:0">ใช้โหลด Peak และเผื่อ Cold Load Pickup ตอนสับโหลดกลับ</p>`;
   $("copyRpt").onclick=async e=>{try{await navigator.clipboard.writeText(rpt);e.target.textContent="คัดลอกแล้ว"}catch(_){const s=getSelection(),rg=document.createRange();rg.selectNodeContents($("rpt"));s.removeAllRanges();s.addRange(rg);e.target.textContent="เลือกข้อความแล้ว กด Ctrl+C"}};
 }
-$("pathBody").addEventListener("input",e=>{const t=e.target;if(t.dataset.i==null)return;path[+t.dataset.i][t.dataset.k]=t.value;
-  const id=t.id,pos=t.selectionStart;renderPath();const n=$(id);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}});
+$("pathBody").addEventListener("input",e=>{const t=e.target;if(t.dataset.i==null)return;path[+t.dataset.i][t.dataset.k]=t.value;updateCalc()});
 $("pathBody").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   if(b.dataset.rm!=null)path.splice(+b.dataset.rm,1);
   if(b.dataset.mv!=null){const i=+b.dataset.mv,j=i+ +b.dataset.d;if(j>=0&&j<path.length)[path[i],path[j]]=[path[j],path[i]]}
   renderPath()});
-["tLoad","tIn","thWarn","thMax","tName","tFrom"].forEach(id=>$(id).addEventListener("input",renderPath));
+["tLoad","tIn","thWarn","thMax","tName","tFrom"].forEach(id=>$(id).addEventListener("input",updateCalc));
 
 /* suggestions with feeder grouping */
 function renderSugg(){const q=$("addQ").value.trim().toUpperCase(),box=$("sugg");
