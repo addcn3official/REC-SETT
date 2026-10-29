@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Recloser Setting Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky toolbar + two tabs (lookup / load transfer); lookup = list left, detail right; stacks on phone */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --sunk:#e8ecea; --line:#d3dad7;
+  --fg:#17211e; --muted:#5b6964; --accent:#0f6b5c; --accent-fg:#ffffff;
+  --amber:#b86e00; --amber-bg:#fff3dc; --red:#b42318; --red-bg:#fdecea; --green:#1d7a3e; --green-bg:#e5f5ea;
+  --display:"IBM Plex Sans Thai",system-ui,sans-serif; --body:"IBM Plex Sans Thai",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101615; --surface:#18201e; --sunk:#0c1110; --line:#2b3633; --fg:#e4ebe8; --muted:#93a29d; --accent:#3fbfa6; --accent-fg:#06221c;
+  --amber:#f0a73a; --amber-bg:#3a2a0f; --red:#ff7b6e; --red-bg:#3b1714; --green:#5fd38a; --green-bg:#12301d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101615; --surface:#18201e; --sunk:#0c1110; --line:#2b3633; --fg:#e4ebe8; --muted:#93a29d; --accent:#3fbfa6; --accent-fg:#06221c;
+  --amber:#f0a73a; --amber-bg:#3a2a0f; --red:#ff7b6e; --red-bg:#3b1714; --green:#5fd38a; --green-bg:#12301d; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding-block:12px}
+h1{font-family:var(--display);font-size:18px;font-weight:700;margin:0;letter-spacing:.01em;display:flex;align-items:center;gap:8px}
+h1 svg{color:var(--accent)}
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:3px;border-radius:8px}
+.tab{border:0;background:transparent;color:var(--muted);font:inherit;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgb(0 0 0/.12)}
+.src{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-size:13px;font-weight:600;padding:6px 12px;border-radius:7px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible,.row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-block:18px 40px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.pill.ok{background:var(--green-bg);color:var(--green)} .pill.warn{background:var(--amber-bg);color:var(--amber)} .pill.bad{background:var(--red-bg);color:var(--red)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+label.lbl{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+input[type=text],input[type=number],input[type=search],select{width:100%;font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+/* lookup */
+.lookup{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;align-items:start}
+.listbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.listhead{padding:12px;display:grid;gap:8px;border-bottom:1px solid var(--line)}
+.list{max-height:68vh;overflow:auto}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.row:hover{background:var(--sunk)} .row[aria-current="true"]{background:var(--sunk);box-shadow:inset 3px 0 0 var(--accent)}
+.row .code{font-family:var(--mono);font-weight:600}
+.row .sub{grid-column:1/-1;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count{font-size:12px;color:var(--muted)}
+.detail{min-width:0;display:grid;gap:16px}
+.titlebar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 16px}
+.titlebar h2{font-family:var(--mono);font-size:28px;margin:0;line-height:1.1}
+.titlebar .where{color:var(--muted);flex-basis:100%}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.panel h3{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 12px}
+.pickups{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.pick{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg)}
+.pick .k{font-size:12px;color:var(--muted)} .pick .v{font-family:var(--mono);font-size:26px;font-weight:600}
+.pick .v small{font-size:13px;color:var(--muted);font-weight:500}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+th.num{text-align:right}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 18px}
+.kv div{min-width:0} .kv .k{font-size:12px;color:var(--muted)} .kv .v{font-weight:500;overflow-wrap:anywhere}
+.note{font-size:14px;color:var(--fg);background:var(--bg);border-left:3px solid var(--line);padding:8px 12px;border-radius:4px}
+.empty{color:var(--muted);padding:30px 16px;text-align:center}
+.banner{font-size:13px;color:var(--amber);background:var(--amber-bg);padding:8px 12px;border-radius:8px}
+/* transfer */
+.tgrid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.adder{position:relative}
+.sugg{position:absolute;left:0;right:0;top:100%;z-index:4;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-top:4px;max-height:260px;overflow:auto;box-shadow:0 8px 24px rgb(0 0 0/.15)}
+.sugg button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--fg);font:inherit;padding:8px 12px;cursor:pointer}
+.sugg button:hover,.sugg button:focus{background:var(--sunk)}
+.path td input{width:90px;padding:5px 7px;text-align:right;font-family:var(--mono)}
+.bar{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;min-width:70px;margin-top:4px}
+.bar i{display:block;height:100%}
+.ico{border:0;background:transparent;color:var(--muted);cursor:pointer;font:inherit;padding:2px 5px;border-radius:4px}
+.ico:hover{color:var(--fg);background:var(--sunk)}
+.verdict{display:grid;gap:10px}
+.verdict .big{font-size:20px;font-weight:700}
+.bypass{font-family:var(--mono);font-weight:600;font-size:17px;color:var(--red)}
+pre.report{white-space:pre-wrap;font-family:var(--body);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;margin:0;max-height:300px;overflow:auto}
+.hint{font-size:13px;color:var(--muted)}
+.flow{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+@media (max-width:820px){.lookup,.tgrid{grid-template-columns:1fr}.list{max-height:40vh}.titlebar h2{font-size:22px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<header><div class="wrap">
+  <h1><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>ค่าเซ็ตติ้งรีโคลสเซอร์</h1>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-lookup" aria-selected="true">ดูค่าอุปกรณ์</button>
+    <button class="tab" role="tab" id="tab-transfer" aria-selected="false">วิเคราะห์ฝากโหลด</button>
+  </div>
+  <div class="src"><span id="srcInfo">—</span>
+    <button class="btn" id="reload">โหลดใหม่</button>
+    <label class="btn" for="csvFile">นำเข้า CSV จาก Sheet</label>
+    <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section id="view-lookup">
+    <div class="lookup">
+      <div class="listbox">
+        <div class="listhead">
+          <input type="search" id="q" placeholder="ค้นหา รหัสสั่งการ / จุดติดตั้ง / Serial" aria-label="ค้นหา">
+          <select id="fOffice" aria-label="กรองตาม กฟส."><option value="">ทุก กฟส.</option></select>
+          <span class="count" id="count"></span>
+        </div>
+        <div class="list" id="list"></div>
+      </div>
+      <div class="detail" id="detail"></div>
+    </div>
+  </section>
+
+  <section id="view-transfer" hidden>
+    <div class="tgrid">
+      <div style="display:grid;gap:16px;min-width:0">
+        <div class="panel">
+          <h3>1 · ข้อมูลการฝากโหลด</h3>
+          <div class="fields">
+            <div><label class="lbl" for="tName">วงจรที่รับฝาก</label><input type="text" id="tName" value="วงจร B"></div>
+            <div><label class="lbl" for="tFrom">โหลดมาจาก</label><input type="text" id="tFrom" value="วงจร A"></div>
+            <div><label class="lbl" for="tLoad">โหลดที่ฝากเพิ่ม (A)</label><input type="number" id="tLoad" value="80" min="0" step="1"></div>
+            <div><label class="lbl" for="tIn">กระแส Unbalance ที่ฝาก (A)</label><input type="number" id="tIn" value="10" min="0" step="1"></div>
+          </div>
+          <details style="margin-top:12px"><summary class="hint" style="cursor:pointer">แปลง MW → A</summary>
+            <div class="fields" style="margin-top:10px">
+              <div><label class="lbl" for="cP">กำลัง (MW)</label><input type="number" id="cP" value="3" step="0.1"></div>
+              <div><label class="lbl" for="cV">แรงดัน (kV)</label><select id="cV"><option>22</option><option>33</option><option>11</option></select></div>
+              <div><label class="lbl" for="cPf">PF</label><input type="number" id="cPf" value="0.9" step="0.01" min="0.1" max="1"></div>
+              <div style="display:flex;align-items:flex-end;gap:8px"><span class="mono" id="cOut" style="font-size:18px;font-weight:600"></span><button class="btn" id="cUse">ใช้ค่านี้</button></div>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel">
+          <h3>2 · รีโคลสเซอร์บนเส้นทางที่โหลดจะไหลผ่าน</h3>
+          <p class="hint" style="margin:0 0 10px">เรียงจากจุดเชื่อม (Tie) ย้อนไปหาสถานีต้นทาง โหลดที่ฝากจะไหลผ่านทุกตัวในรายการ ใส่โหลดเดิมของแต่ละตัวเป็นค่า Peak</p>
+          <div class="adder">
+            <input type="search" id="addQ" placeholder="พิมพ์รหัสสั่งการเพื่อเพิ่ม เช่น TKB06" aria-label="เพิ่มรีโคลสเซอร์">
+            <div class="sugg" id="sugg" hidden></div>
+          </div>
+          <div class="flow" style="margin:10px 0 4px"><span>จุด Tie</span><span>→</span><span id="flowCodes">ยังไม่มีอุปกรณ์</span><span>→</span><span>สถานี</span></div>
+          <div class="scroll">
+            <table class="path"><thead><tr>
+              <th>#</th><th>รหัสสั่งการ</th><th class="num">Min Trip Ph</th><th class="num">โหลดเดิม (A)</th><th class="num">รวมหลังฝาก</th><th>% ของ Min Trip</th>
+              <th class="num">Min Trip G</th><th class="num">In เดิม (A)</th><th>ผล</th><th></th>
+            </tr></thead><tbody id="pathBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <aside style="display:grid;gap:16px">
+        <div class="panel">
+          <h3>เกณฑ์</h3>
+          <div class="fields" style="grid-template-columns:1fr 1fr">
+            <div><label class="lbl" for="thWarn">เฝ้าระวัง ≥ %</label><input type="number" id="thWarn" value="80" min="10" max="100"></div>
+            <div><label class="lbl" for="thMax">เกิน ≥ %</label><input type="number" id="thMax" value="100" min="10" max="200"></div>
+          </div>
+          <p class="hint" style="margin:8px 0 0">% = กระแสรวมหลังฝาก ÷ Minimum Trip Phase (เทียบ In ÷ Minimum Trip Ground ด้วย)</p>
+        </div>
+        <div class="panel verdict" id="verdict"></div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ---------- example data: 8 rows from sheet "IMPORT กบษ" ---------- */
+const H=["Lat, Long","Side ID","DNP Address","สถานะอุปกรณ์สื่อสาร","SCADA","สถานะ ปกติ/ชำรุด","อุปกรณ์ที่ชำรุด","รหัสสั่งการ","จุดติดตั้ง","กฟฟ.","สถานะ Close/Open","RC-ผลิตภัณฑ์","RC-Model","RC-ปีที่ผลิต","RC-Serial No.","RC-PEA No.","RC-สต.","CR-ผลิตภัณฑ์","CR-Model","CR-ปีที่ผลิต","CR-Serial No.","CR-PEA No.","PT-ผลิตภัณฑ์","PT-Model","PT-ปีที่ผลิต","PT-Serial No.","PT-PEA No.","อุปกรณ์สื่อสาร","Master","Battery Installed Date","หมายเหตุ","อื่นๆ","Minimum Trip Phase","TCC.1st Phase","Multiplier TCC.1 Phase","TCC.2nd Phase","Multiplier TCC.2 Phase","Minimum Trip Ground","TCC.1st Ground","Multiplier TCC.1 Ground","TCC.2nd Ground","Multiplier TCC.2 Ground","Sequence/Coordination","Operation to Lockout","Reclosing Time 1st (Sec.)","Reclosing Time 2nd (Sec.)","Reset Time (Sec.)"];
+const SAMPLE=[
+["15.221835, 100.365822","N3-REC-0025","2938","Online","Online","ปกติ","","TKB06VR-101","บ้านโพนทอง(ข้างโรงปูน)","กฟส.ตาคลี","Close","EATON COOPER POWER","NOVAi","2022","CP5820375-C","RC63-230977","สต.096/2563","EATON COOPER POWER","FORM FXD","2022","CP58FXD14530","CR63-230906","PRECISE","VOL-24","2022","2515074","PT63-212060","DAU","Takhli 2 Substation","8/7/2568","TKB06R-01 ผังเดิม บำรุงรักษา 2567, ล่อฟ้า Ph C ด้าน load ชำรุด","Offline จัดแผน End to End","340","105","1","116","1","100","111","1","165","1","","3","5","15","120"],
+["15.899523, 99.919330","N3-REC-0184","25185","Management Deleted","Has a Tag|Off Scan","ปกติ","","BTA01VR-101","AVR บรรพต (ขวา)จากสถานีบรรพต","กฟส.บรรพตพิสัย","Close","EATON COOPER POWER","NOVAi","2021","CP5820526-C","RC63-231663","098/2563","EATON COOPER POWER","FORM FXD","2021","CP58FXD14779","CR63-231690","PRECISE","VOL-24","2021","2514007","PT63-212754","DAU","Lat Yao Substation","1/10/2564","ชำรุด อุปกรณ์ถูกโจรกรรม เดิม LAA02 ทดสอบ SCADA Phase 3 17/08/2023","Offline เนื่องจากถูกโจรกรรมตัดสายตู้ควบคุม","280","-","-","116","1","70","-","-","165","1","","2","10","-","120"],
+["15.000697, 101.119325","N3-REC-0152","25121","Online","Online","ปกติ","","CDB08VR-101","บ้านมะนาวหวาน (บ้านเนินทอง)","กฟส.บ้านแก่งเสือเต้น","Close","G&W","Viper-S","2013","R-13-0052","22PEA56-0021","","SEL","SEL-351R-4","2556","1130450201","","PRECISE","VOG-242","2556","2474083","","DAU","Tha Luang Office","27/1/2569","","ไม่มีข้อมูล","300","101","1","116","1","75","102","1","165","1","","3","5","15","120"],
+["15.633585, 100.256939","N3-REC-0926","60976","Online","Online","ปกติ","","TCA04R-02","บ้านหนองเต่า","กฟส.พยุหะคีรี","Close","ENTEC","ENTEC EPR-2","2015","PR215090300","22-PEA-58-0065","","ENTEC","EVRC2A-NT","2010","PR215090309","","Thai Maxwell","","2015","5830882","","Cellular Modem","","12/6/2568","ย้ายจุดติดตั้งมาจาก MRA07R-01 บ้านหนองแขม","ไม่มีข้อมูล","200","101","1","116","1","50","102","1","165","1","OFF","3","5","15","120"],
+["15.284366, 101.348287","N3-REC-0613","40613","Online","Online","ปกติ","","CDA07VR-104","ทางแยกเข้าโรงเรียนบ้านหนองเกตุ(บ้านวังเชื่อม)","กฟส.ลำสนธิ","Close","EATON COOPER POWER","NOVAi","12.2022","CP5822165-C","RC65-230775","กจพ.2-ซ(รค)-005/2565","EATON COOPER POWER","FORM FXD","12.2022","CP58FXD15991","CR65-230839","PRECISE","VOL-24","2023","2511114","PT65-211756","DAU","Lam Sonthi Office","6/4/2565","ทดสอบ SCADA 3 11/06/2024 Item2 คพจ.","ไม่มีข้อมูล","250","103","1","116","1","60","105","1","165","1","ON","3","5","15","120"],
+["15.685958, 101.131922","N3-REC-0086","2524","Online","Off Scan","ปกติ","","WIR02R-04","แยกไปบ้านโคกปรง(ตรงข้ามปั๊มสหกรณ์บางจาก)","กฟส.วิเชียรบุรี","Close","SHINSUNG","SIREC","2021","PR-20-1192","RC63-231335","097/2563","SHINSUNG","R6-CR","2021","PR-20-1192","CR63-231335","PRECISE","VOL-24","2021","2515754","PT63-212474","DAU","Wichian Buri Office","6/8/2569","ย้ายจุดติดตั้งออกไปประมาณ 1.5 กม.","Offline สาเหตุ ผบอ.เปลี่ยน Config RTU เป็นแบบ 4 กรุ๊ป","280","103","1","116","1","70","105","1","165","1","","3","5","15","120"],
+["15.180371, 101.164603","N3-REC-0153","25122","Online","Online","ปกติ","","CDA06VR-102","สี่แยกสหเมืองทอง(ทางไปน้ำตก)","กฟส.ชัยบาดาล","Close","SCHNEIDER ELECTRIC","Nu-lec U Series","06.2005","298692","22PEA48-0198","","SCHNEIDER ELECTRIC","PTCC","06.2005","298892","PEA NO. เลือนลาง","PRECISE","VOL-24","2005","2446384","PEA NO. เลือนลาง","DAU","Chai Badan Office","30/1/2569","","ไม่มีข้อมูล อุปกรณ์สื่อสาร Offline","300","101","1","116","1","75","102","1","165","1","OFF","3","5","15","120"],
+["15.412050, 100.560173","N3-REC-0144","2940","Online","Online","ปกติ","ตู้ควบคุม","NUA04VR-104","บ้านเขาหลักชัย","กฟส.ไพศาลี","Close","SHINSUNG","SIREC","","PR-20-1172","RC63-231315","097/2563","SHINSUNG","","2021","PR-20-1172","CR63-231315","PRECISE","","2021","2515680","PT63-212400","DAU","Phaisali Office","14/1/2565","ทดสอบ SCADA 3 228.6 Vac., 26.7 Vdc. 26.4 Vdc.","ไม่มีข้อมูล อุปกรณ์สื่อสาร Offline","140","A","-","D","-","35","1","-","k","-","","3","5","15","120"]
+];
+
+/* ---------- state ---------- */
+let DB=[], SOURCE="", sel=null, path=[];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const val=(r,k)=>{const v=(r[k]??"").toString().trim();return v===""||v==="-"?"":v};
+const num=v=>{const n=parseFloat(String(v).replace(/,/g,""));return isFinite(n)?n:null};
+const feeder=code=>(code.match(/^([A-Z]+\d+)/)||[])[1]||"";
+
+function fromRows(rows,label){
+  const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==="รหัสสั่งการ"));
+  if(hi<0) throw new Error("ไม่พบคอลัมน์ 'รหัสสั่งการ' ในไฟล์ ตรวจว่าเป็นชีต IMPORT กบษ หรือ DATA");
+  const head=rows[hi].map(c=>String(c).trim());
+  DB=rows.slice(hi+1).map(r=>{const o={};head.forEach((h,i)=>{if(h)o[h]=r[i]??""});return o}).filter(o=>val(o,"รหัสสั่งการ"));
+  DB.sort((a,b)=>val(a,"รหัสสั่งการ").localeCompare(val(b,"รหัสสั่งการ")));
+  SOURCE=label; sel=null; path=path.filter(p=>byCode(p.code));
+  const offices=[...new Set(DB.map(r=>val(r,"กฟฟ.")).filter(Boolean))].sort();
+  $("fOffice").innerHTML='<option value="">ทุก กฟส. ('+offices.length+')</option>'+offices.map(o=>`<option>${esc(o)}</option>`).join("");
+  $("srcInfo").innerHTML=`${esc(label)} · <b class="mono">${DB.length}</b> ตัว`;
+  renderList(); renderDetail(); renderPath();
+}
+const byCode=c=>DB.find(r=>val(r,"รหัสสั่งการ")===c);
+
+/* CSV parser (quotes, commas, newlines in cells) */
+function parseCSV(t){const out=[];let row=[],f="",q=false;
+  for(let i=0;i<t.length;i++){const c=t[i];
+    if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c=='"')q=true; else if(c==','){row.push(f);f=""}
+    else if(c=='\n'||c=='\r'){if(c=='\r'&&t[i+1]=='\n')i++;row.push(f);out.push(row);row=[];f=""}
+    else f+=c}
+  if(f||row.length){row.push(f);out.push(row)} return out}
+
+$("csvFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();rd.onload=()=>{try{fromRows(parseCSV(String(rd.result).replace(/^﻿/,"")),"ไฟล์ "+f.name);
+    try{localStorage.setItem("rc_csv",rd.result);localStorage.setItem("rc_name",f.name)}catch(_){} }catch(err){$("srcInfo").textContent=err.message}};
+  rd.readAsText(f,"utf-8");e.target.value=""});
+
+/* ---------- lookup ---------- */
+function renderList(){
+  const q=$("q").value.trim().toLowerCase(), off=$("fOffice").value;
+  const rows=DB.filter(r=>(!off||val(r,"กฟฟ.")===off)&&(!q||[ "รหัสสั่งการ","จุดติดตั้ง","RC-Serial No.","RC-PEA No.","Side ID","กฟฟ."].some(k=>val(r,k).toLowerCase().includes(q))));
+  $("count").textContent=`แสดง ${rows.length} จาก ${DB.length} ตัว`;
+  $("list").innerHTML=rows.length?rows.slice(0,400).map(r=>{const c=val(r,"รหัสสั่งการ");
+    return `<div class="row" tabindex="0" data-c="${esc(c)}" aria-current="${sel===c}"><span class="code">${esc(c)}</span><span class="mono" style="font-size:13px">${esc(val(r,"Minimum Trip Phase")||"–")}/${esc(val(r,"Minimum Trip Ground")||"–")} A</span><span class="sub">${esc(val(r,"กฟฟ."))} · ${esc(val(r,"จุดติดตั้ง"))}</span></div>`}).join("")
+    :'<div class="empty">ไม่พบอุปกรณ์ที่ตรงกับคำค้น</div>';
+  if(!sel&&rows[0]){sel=val(rows[0],"รหัสสั่งการ");renderDetail();renderList();}
+}
+$("list").addEventListener("click",e=>{const r=e.target.closest(".row");if(r){sel=r.dataset.c;renderList();renderDetail()}});
+$("list").addEventListener("keydown",e=>{if(e.key==="Enter"){const r=e.target.closest(".row");if(r){sel=r.dataset.c;renderList();renderDetail()}}});
+$("q").addEventListener("input",renderList); $("fOffice").addEventListener("change",renderList);
+
+function statusPill(v){if(!v)return"";const s=v.toLowerCase();
+  const cls=/online|ปกติ|close/.test(s)&&!/off/.test(s)?"ok":/delete|ชำรุด|open/.test(s)?"bad":"warn";return `<span class="pill ${cls}">${esc(v)}</span>`}
+
+function renderDetail(){
+  const r=sel&&byCode(sel), d=$("detail");
+  if(!r){d.innerHTML='<div class="panel empty">เลือกรีโคลสเซอร์จากรายการด้านซ้าย</div>';return}
+  const v=k=>val(r,k), ll=v("Lat, Long");
+  const tccRow=(lbl,a,b,c,e)=>`<tr><td>${lbl}</td><td class="num">${esc(v(a)||"–")}</td><td class="num">${esc(v(b)||"–")}</td><td class="num">${esc(v(c)||"–")}</td><td class="num">${esc(v(e)||"–")}</td></tr>`;
+  const np=["RC","CR","PT"].map(p=>[p,v(p+"-ผลิตภัณฑ์"),v(p+"-Model"),v(p+"-ปีที่ผลิต"),v(p+"-Serial No."),v(p+"-PEA No."),v(p+"-สต.")]).filter(x=>x.slice(1).some(Boolean));
+  const kv=(k,x)=>x?`<div><div class="k">${k}</div><div class="v">${x}</div></div>`:"";
+  d.innerHTML=`
+  <div class="titlebar"><h2>${esc(sel)}</h2>${statusPill(v("สถานะ Close/Open"))}${statusPill(v("สถานะ ปกติ/ชำรุด"))}${v("SCADA")?`<span class="pill">SCADA: ${esc(v("SCADA"))}</span>`:""}
+    <div class="where">${esc(v("จุดติดตั้ง"))} · ${esc(v("กฟฟ."))}${ll?` · <a href="https://www.google.com/maps?q=${encodeURIComponent(ll)}" target="_blank" rel="noopener" style="color:var(--accent)">แผนที่</a>`:""}</div>
+    <button class="btn" id="toPath">+ เพิ่มเข้าการวิเคราะห์ฝากโหลด</button></div>
+  <div class="panel"><h3>ค่าเซ็ตติ้ง</h3>
+    <div class="pickups">
+      <div class="pick"><div class="k">Minimum Trip Phase</div><div class="v">${esc(v("Minimum Trip Phase")||"–")} <small>A</small></div></div>
+      <div class="pick"><div class="k">Minimum Trip Ground</div><div class="v">${esc(v("Minimum Trip Ground")||"–")} <small>A</small></div></div>
+      <div class="pick"><div class="k">Operation to Lockout</div><div class="v">${esc(v("Operation to Lockout")||"–")} <small>shot</small></div></div>
+      <div class="pick"><div class="k">Reclose 1st / 2nd · Reset</div><div class="v" style="font-size:20px">${esc(v("Reclosing Time 1st (Sec.)")||"–")} / ${esc(v("Reclosing Time 2nd (Sec.)")||"–")} · ${esc(v("Reset Time (Sec.)")||"–")} <small>s</small></div></div>
+    </div>
+    ${v("TCC.1st Phase")||v("TCC.2nd Phase")?`<div class="scroll" style="margin-top:14px"><table><thead><tr><th></th><th class="num">TCC 1st</th><th class="num">Mult. 1</th><th class="num">TCC 2nd</th><th class="num">Mult. 2</th></tr></thead><tbody>
+      ${tccRow("Phase","TCC.1st Phase","Multiplier TCC.1 Phase","TCC.2nd Phase","Multiplier TCC.2 Phase")}
+      ${tccRow("Ground","TCC.1st Ground","Multiplier TCC.1 Ground","TCC.2nd Ground","Multiplier TCC.2 Ground")}</tbody></table></div>`:""}
+    <div class="kv" style="margin-top:12px">${kv("Sequence Coordination",esc(v("Sequence/Coordination")))}${kv("Curve Fast",esc(v("สถานะ Curve Fast")))}${kv("Voltage Blocking Relay",esc(v("Voltage Blocking Relay")))}</div>
+  </div>
+  ${np.length?`<div class="panel"><h3>เนมเพลต</h3><div class="scroll"><table><thead><tr><th>ชุด</th><th>ผลิตภัณฑ์</th><th>Model</th><th>ปีผลิต</th><th>Serial No.</th><th>PEA No.</th><th>สต.</th></tr></thead><tbody>
+    ${np.map(x=>`<tr><td><b>${x[0]==="RC"?"Recloser":x[0]==="CR"?"Control":"PT"}</b></td>${x.slice(1).map((c,i)=>`<td class="${i>=3?"mono":""}">${esc(c||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`:""}
+  <div class="panel"><h3>สื่อสารและสถานะ</h3><div class="kv">
+    ${kv("Side ID",`<span class="mono">${esc(v("Side ID"))}</span>`)}${kv("DNP Address",`<span class="mono">${esc(v("DNP Address"))}</span>`)}${kv("สถานะอุปกรณ์สื่อสาร",esc(v("สถานะอุปกรณ์สื่อสาร")))}
+    ${kv("อุปกรณ์สื่อสาร",esc(v("อุปกรณ์สื่อสาร")))}${kv("Master",esc(v("Master")))}${kv("Battery Installed",esc(v("Battery Installed Date")))}${kv("อุปกรณ์ที่ชำรุด",esc(v("อุปกรณ์ที่ชำรุด")))}</div>
+    ${v("หมายเหตุ")?`<div class="note" style="margin-top:12px"><b>หมายเหตุ:</b> ${esc(v("หมายเหตุ"))}</div>`:""}
+    ${v("อื่นๆ")?`<div class="note" style="margin-top:8px"><b>อื่นๆ:</b> ${esc(v("อื่นๆ"))}</div>`:""}
+  </div>`;
+  $("toPath").onclick=()=>{addPath(sel);switchTab("transfer")};
+}
+
+/* ---------- load transfer ---------- */
+function addPath(c){if(!c||path.some(p=>p.code===c))return;path.push({code:c,load:"",inn:""});renderPath()}
+function renderPath(){
+  const tb=$("pathBody"), add=+$("tLoad").value||0, addIn=+$("tIn").value||0, W=+$("thWarn").value||80, M=+$("thMax").value||100;
+  $("flowCodes").textContent=path.length?path.map(p=>p.code).join(" → "):"ยังไม่มีอุปกรณ์";
+  const res=path.map(p=>{const r=byCode(p.code)||{},mp=num(val(r,"Minimum Trip Phase")),mg=num(val(r,"Minimum Trip Ground"));
+    const tot=(+p.load||0)+add, totIn=(+p.inn||0)+addIn, pp=mp?tot/mp*100:null, pg=mg?totIn/mg*100:null;
+    const worst=Math.max(pp??0,pg??0), st=mp==null?"na":worst>=M?"bad":worst>=W?"warn":"ok";
+    return {...p,mp,mg,tot,totIn,pp,pg,st,loc:val(r,"จุดติดตั้ง")}});
+  tb.innerHTML=res.length?res.map((x,i)=>{const col=x.st==="bad"?"var(--red)":x.st==="warn"?"var(--amber)":"var(--green)";
+    return `<tr><td class="mono">${i+1}</td><td><b class="mono">${esc(x.code)}</b><div class="hint" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.loc)}</div></td>
+    <td class="num">${x.mp??"–"}</td><td class="num"><input type="number" min="0" id="ld-${i}" data-i="${i}" data-k="load" value="${esc(x.load)}" placeholder="0"></td>
+    <td class="num"><b>${x.tot.toFixed(0)}</b></td>
+    <td>${x.pp!=null?`<span class="mono">${x.pp.toFixed(0)}%</span><div class="bar"><i style="width:${Math.min(x.pp,100)}%;background:${col}"></i></div>`:"–"}</td>
+    <td class="num">${x.mg??"–"}</td><td class="num"><input type="number" min="0" id="in-${i}" data-i="${i}" data-k="inn" value="${esc(x.inn)}" placeholder="0"><div class="hint">${x.pg!=null?x.pg.toFixed(0)+"%":""}</div></td>
+    <td>${x.st==="bad"?'<span class="pill bad">เกิน</span>':x.st==="warn"?'<span class="pill warn">เฝ้าระวัง</span>':x.st==="ok"?'<span class="pill ok">ผ่าน</span>':'<span class="pill">ไม่มีค่า</span>'}</td>
+    <td style="white-space:nowrap"><button class="ico" data-mv="${i}" data-d="-1" aria-label="เลื่อนขึ้น">↑</button><button class="ico" data-mv="${i}" data-d="1" aria-label="เลื่อนลง">↓</button><button class="ico" data-rm="${i}" aria-label="ลบ">✕</button></td></tr>`}).join("")
+    :'<tr><td colspan="10" class="empty">ค้นหาแล้วเพิ่มรีโคลสเซอร์ของวงจรที่รับฝาก หรือกด "+ เพิ่มเข้าการวิเคราะห์" จากหน้าดูค่าอุปกรณ์</td></tr>';
+  renderVerdict(res,add,addIn,W,M);
+}
+function renderVerdict(res,add,addIn,W,M){
+  const v=$("verdict"), bad=res.filter(x=>x.st==="bad"), warn=res.filter(x=>x.st==="warn"), name=$("tName").value||"วงจรรับฝาก", from=$("tFrom").value||"วงจรต้นทาง";
+  if(!res.length){v.innerHTML='<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0">ผลวิเคราะห์</h3><p class="hint" style="margin:0">ผลจะแสดงที่นี่เมื่อเพิ่มรีโคลสเซอร์อย่างน้อย 1 ตัว</p>';return}
+  const line=x=>`- ${x.code}: ${x.tot.toFixed(0)} A / Min Trip ${x.mp??"-"} A (${x.pp!=null?x.pp.toFixed(0):"-"}%)${x.pg!=null?`, In ${x.totIn.toFixed(0)} A / ${x.mg} A (${x.pg.toFixed(0)}%)`:""}`;
+  let rpt=`ฝากโหลด ${add} A (In ${addIn} A) จาก ${from} ไป ${name}\nเกณฑ์: เฝ้าระวัง ≥${W}%, เกิน ≥${M}% ของ Minimum Trip\n\n`+res.map(line).join("\n");
+  rpt+=bad.length?`\n\nข้อแนะนำ: Bypass รีโคลสเซอร์ ${bad.map(x=>x.code).join(", ")} ก่อนฝากโหลด และคืนสภาพหลังโอนโหลดกลับ`:"\n\nข้อแนะนำ: ฝากโหลดได้โดยไม่ต้อง Bypass";
+  if(warn.length) rpt+=`\nเฝ้าระวังกระแสที่ ${warn.map(x=>x.code).join(", ")} ระหว่างฝาก`;
+  v.innerHTML=`<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0">ผลวิเคราะห์</h3>
+    ${bad.length?`<div class="big" style="color:var(--red)">เกินเซ็ตติ้ง ${bad.length} ตัว</div><div>แนะนำ Bypass</div><div class="bypass">${bad.map(x=>esc(x.code)).join("<br>")}</div>
+      <p class="hint" style="margin:0">เมื่อ Bypass แล้ว ช่วงนั้นจะได้รับการป้องกันจากอุปกรณ์ตัวถัดไปทางต้นทาง ตรวจว่าตัวถัดไปยัง <b>ผ่าน</b> และ Coordinate กับ Fuse ด้านปลายได้</p>`
+      :`<div class="big" style="color:${warn.length?"var(--amber)":"var(--green)"}">${warn.length?"ฝากได้ แต่ต้องเฝ้าระวัง":"ฝากโหลดได้"}</div><p class="hint" style="margin:0">ไม่มีรีโคลสเซอร์ตัวใดเกิน ${M}% ของ Minimum Trip</p>`}
+    ${warn.length?`<div><span class="pill warn">เฝ้าระวัง</span> <span class="mono">${warn.map(x=>esc(x.code)).join(", ")}</span></div>`:""}
+    <pre class="report" id="rpt">${esc(rpt)}</pre>
+    <button class="btn" id="copyRpt">คัดลอกสรุป</button>
+    <p class="hint" style="margin:0">ใช้โหลด Peak และเผื่อ Cold Load Pickup ตอนสับโหลดกลับ</p>`;
+  $("copyRpt").onclick=async e=>{try{await navigator.clipboard.writeText(rpt);e.target.textContent="คัดลอกแล้ว"}catch(_){const s=getSelection(),rg=document.createRange();rg.selectNodeContents($("rpt"));s.removeAllRanges();s.addRange(rg);e.target.textContent="เลือกข้อความแล้ว กด Ctrl+C"}};
+}
+$("pathBody").addEventListener("input",e=>{const t=e.target;if(t.dataset.i==null)return;path[+t.dataset.i][t.dataset.k]=t.value;
+  const id=t.id,pos=t.selectionStart;renderPath();const n=$(id);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}});
+$("pathBody").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.rm!=null)path.splice(+b.dataset.rm,1);
+  if(b.dataset.mv!=null){const i=+b.dataset.mv,j=i+ +b.dataset.d;if(j>=0&&j<path.length)[path[i],path[j]]=[path[j],path[i]]}
+  renderPath()});
+["tLoad","tIn","thWarn","thMax","tName","tFrom"].forEach(id=>$(id).addEventListener("input",renderPath));
+
+/* suggestions with feeder grouping */
+function renderSugg(){const q=$("addQ").value.trim().toUpperCase(),box=$("sugg");
+  if(!q){box.hidden=true;return}
+  const hits=DB.filter(r=>val(r,"รหัสสั่งการ").toUpperCase().includes(q)||val(r,"จุดติดตั้ง").toUpperCase().includes(q)).slice(0,30);
+  const fd=feeder(q), same=fd?DB.filter(r=>feeder(val(r,"รหัสสั่งการ"))===fd&&!path.some(p=>p.code===val(r,"รหัสสั่งการ"))):[];
+  box.innerHTML=(same.length>1?`<button data-feeder="${esc(fd)}"><b>+ เพิ่มทั้งฟีดเดอร์ ${esc(fd)}</b> <span class="hint">(${same.length} ตัว)</span></button>`:"")+
+    (hits.length?hits.map(r=>{const c=val(r,"รหัสสั่งการ");return `<button data-add="${esc(c)}"><b class="mono">${esc(c)}</b> <span class="hint">${esc(val(r,"Minimum Trip Phase"))} A · ${esc(val(r,"จุดติดตั้ง"))}</span></button>`}).join(""):'<div class="hint" style="padding:8px 12px">ไม่พบ</div>');
+  box.hidden=false}
+$("addQ").addEventListener("input",renderSugg);
+$("sugg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.add)addPath(b.dataset.add);
+  if(b.dataset.feeder)DB.filter(r=>feeder(val(r,"รหัสสั่งการ"))===b.dataset.feeder).forEach(r=>addPath(val(r,"รหัสสั่งการ")));
+  $("addQ").value="";$("sugg").hidden=true});
+document.addEventListener("click",e=>{if(!e.target.closest(".adder"))$("sugg").hidden=true});
+
+/* MW → A */
+function conv(){const P=+$("cP").value||0,V=+$("cV").value,pf=+$("cPf").value||1;const I=P*1000/(Math.sqrt(3)*V*pf);$("cOut").textContent=I.toFixed(1)+" A";return I}
+["cP","cV","cPf"].forEach(id=>$(id).addEventListener("input",conv));$("cUse").onclick=()=>{$("tLoad").value=Math.round(conv());renderPath()};
+
+/* tabs */
+function switchTab(t){["lookup","transfer"].forEach(n=>{$("tab-"+n).setAttribute("aria-selected",n===t);$("view-"+n).hidden=n!==t})}
+$("tab-lookup").onclick=()=>switchTab("lookup");$("tab-transfer").onclick=()=>switchTab("transfer");
+
+/* ---------- boot: Google Sheet → saved CSV → example ---------- */
+/* ตั้งค่าแหล่งข้อมูล: Sheet ต้องแชร์แบบ "ทุกคนที่มีลิงก์ดูได้" หรือ File > Share > Publish to web */
+const CONFIG={
+  SHEET_ID:"16pGEqIsGoINcr1TuGeRhaS9TTZDaAHnq_SCOUTW9TQg",
+  SHEET_NAME:"IMPORT กบษ",
+  GID:"1126595077",
+  PUB_CSV_URL:""   // ถ้าใช้ Publish to web (CSV) ให้วางลิงก์ที่นี่ จะเสถียรที่สุด
+};
+async function fetchCSV(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
+  const t=await r.text();if(/^\s*</.test(t))throw new Error("Sheet ยังไม่ได้แชร์แบบสาธารณะ");return parseCSV(t.replace(/^﻿/,""))}
+async function loadSheet(){
+  const id=CONFIG.SHEET_ID,urls=[];
+  if(CONFIG.PUB_CSV_URL)urls.push(CONFIG.PUB_CSV_URL);
+  urls.push(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CONFIG.SHEET_NAME)}`);
+  if(CONFIG.GID)urls.push(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${CONFIG.GID}`);
+  let last;for(const u of urls){try{const rows=await fetchCSV(u);fromRows(rows,"Google Sheet");return true}catch(e){last=e}}
+  throw last}
+async function boot(){
+  $("srcInfo").textContent="กำลังโหลดจาก Google Sheet…";
+  try{await loadSheet();return}catch(err){console.warn(err)}
+  let csv=null,name="";try{csv=localStorage.getItem("rc_csv");name=localStorage.getItem("rc_name")||""}catch(_){}
+  if(csv){try{fromRows(parseCSV(csv),"ไฟล์ "+name+" (โหลด Sheet ไม่ได้)");return}catch(_){}}
+  fromRows([H,...SAMPLE],"ข้อมูลตัวอย่าง (โหลด Sheet ไม่ได้)");
+  path=[{code:"TCA04R-02",load:"140",inn:"20"},{code:"NUA04VR-104",load:"60",inn:"12"},{code:"TKB06VR-101",load:"190",inn:"30"}];
+  renderPath();
+}
+conv();
+boot();
+$("reload").onclick=()=>boot();
+</script>
+
+</body>
+</html>
