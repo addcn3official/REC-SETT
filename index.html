@@ -113,7 +113,7 @@ th.num{text-align:right}
 .cmp .box{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg)}
 .cmp .box b{font-family:var(--mono);font-size:16px}
 .role{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-@media (max-width:640px){.steps{grid-template-columns:1fr}}
+@media (max-width:640px){.steps{grid-template-columns:minmax(0,1fr)}}
 .tgrid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
 .adder{position:relative}
@@ -135,8 +135,85 @@ th.num{text-align:right}
 pre.report{white-space:pre-wrap;font-family:var(--body);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;margin:0;max-height:300px;overflow:auto}
 .hint{font-size:13px;color:var(--muted)}
 .flow{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-@media (max-width:1100px){.tgrid{grid-template-columns:1fr}}
-@media (max-width:820px){.lookup,.tgrid{grid-template-columns:1fr}.list{max-height:40vh}.titlebar h2{font-size:22px}}
+@media (max-width:1100px){.tgrid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:820px){.lookup,.tgrid{grid-template-columns:minmax(0,1fr)}.list{max-height:40vh}.titlebar h2{font-size:22px}}
+/* ===== Phone layout (≤640px): app-style, layout only ===== */
+.dcol{min-width:0}
+.mback{display:none}
+@media (max-width:640px){
+  header{position:static}
+  header .wrap{gap:8px 10px;padding-block:12px 10px}
+  h1{font-size:17px;flex:1 1 auto}
+  .src{margin-left:0;width:100%;font-size:12px;gap:6px 8px}
+  .src #srcInfo{flex:1 1 100%}
+  .src .btn{padding:6px 12px;font-size:13px}
+  /* tabs become a bottom bar */
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;border-radius:0;gap:8px;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 18px rgb(0 0 0/.12);
+    padding:8px max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+  .tab{flex:1;min-height:46px;font-size:15px;border-radius:10px}
+  .tab[aria-selected="true"]{background:var(--accent);color:var(--accent-fg);box-shadow:none}
+  main{padding-top:12px;padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+  .panel{padding:14px;border-radius:12px}
+  .panel h3{margin-bottom:10px}
+
+  /* lookup: list screen ↔ detail screen */
+  .lookup{gap:12px}
+  .listbox{overflow:visible;border-radius:12px}
+  .listhead{position:sticky;top:env(safe-area-inset-top,0px);z-index:3;background:var(--surface);border-radius:12px 12px 0 0}
+  .list{max-height:none;overflow:visible}
+  .row{padding:12px 14px}
+  .row .code{font-size:16px}
+  body:not(.m-detail) .dcol{display:none}
+  body.m-detail .listbox{display:none}
+  .mback{display:inline-flex;align-items:center;margin-bottom:12px;min-height:40px}
+  .titlebar{gap:6px 8px}
+  .titlebar h2{font-size:24px;flex-basis:100%}
+  .titlebar .where{font-size:14px}
+  .titlebar span[style*="display:flex"]{display:grid!important;grid-template-columns:1fr 1fr;width:100%;margin-top:4px}
+  .titlebar span[style*="display:flex"] .btn{min-height:44px;font-size:14px}
+  .pickups{grid-template-columns:1fr 1fr;gap:8px}
+  .pick{padding:10px}
+  .pick .v{font-size:22px}
+  .kv{grid-template-columns:1fr 1fr;gap:12px}
+
+  /* wide tables become stacked cards */
+  table.cards thead{display:none}
+  table.cards,table.cards tbody,table.cards tr{display:block;width:100%}
+  table.cards tr{border:1px solid var(--line);border-radius:10px;padding:6px 12px;margin-bottom:10px;background:var(--bg)}
+  table.cards td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;padding:6px 0;text-align:right;min-width:0}
+  table.cards td::before{content:attr(data-label);font-size:12px;color:var(--muted);text-align:left;flex:0 1 auto}
+  table.cards td:first-child{display:block;text-align:left;font-size:16px;border-bottom:1px solid var(--line);padding:6px 0 8px;margin-bottom:2px}
+  table.cards td:first-child::before,table.cards td[colspan]::before{content:none}
+  table.cards td[colspan]{display:block;text-align:left}
+  table.cards td:empty{display:none}
+  table.cards td>*{min-width:0}
+  table.cards .bar{min-width:110px}
+  .scroll:has(table.cards){overflow:visible}
+  .path .loc{max-width:none;white-space:normal}
+  .ph3{width:100%;max-width:230px}.ph3 input{width:100%!important}
+
+  /* load transfer: summary first */
+  .tgrid{display:flex;flex-direction:column;gap:12px}
+  .tmain,.tside{display:contents}
+  .tmain>.panel:nth-child(1){order:1}
+  .tside>.verdict{order:2}
+  .tmain>.panel:nth-child(2){order:3}
+  .tmain>.panel:nth-child(3){order:4}
+  .tside>.panel:not(.verdict){order:5}
+  .verdict .big{font-size:22px}
+  .bypass{font-size:18px}
+  .cmp{grid-template-columns:minmax(0,1fr)}
+  .cmp>div:nth-child(2){justify-self:center;transform:rotate(90deg)}
+  pre.report{max-height:none}
+
+  /* single-line diagram runs top → bottom */
+  .sld{flex-direction:column;align-items:stretch;gap:0;padding:0}
+  .node{grid-template-columns:38px minmax(0,1fr) auto;justify-items:start;align-items:center;text-align:left;max-width:none;min-width:0;column-gap:10px;padding:2px 0}
+  .node .nm{font-size:14px}
+  .node .sub2{justify-self:end;font-size:12px}
+  .wire{flex:none;width:2px;min-width:0;height:16px;margin-left:18px}
+  .wire.dead{background:repeating-linear-gradient(180deg,var(--line) 0 4px,transparent 4px 8px)}
+}
 /* iPhone / iPad */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{-webkit-tap-highlight-color:transparent}
@@ -183,7 +260,7 @@ input[type=search]{-webkit-appearance:none;appearance:none}
         </div>
         <div class="list" id="list"></div>
       </div>
-      <div class="detail" id="detail"></div>
+      <div class="dcol"><button class="btn mback" id="backList" type="button">‹ รายการทั้งหมด</button><div class="detail" id="detail"></div></div>
     </div>
   </section>
 
@@ -600,6 +677,20 @@ async function boot(){
     ["TKB06VR-101",{parent:"TKB06",a:"150",b:"140",c:"155"}],["NUA04VR-104",{parent:"TKB06VR-101",a:"60",b:"50",c:"65"}]]);showSrc();
   setOut("TCA04R-02");TIE="WIR02R-04";$("tiePos").value=TIE;setRecv("NUA04VR-104");
 }
+/* ---------- phone layout helpers (UI only; no calculation here) ---------- */
+const isPhone=()=>matchMedia("(max-width:640px)").matches;
+function cardify(t){if(!t)return;const ths=[...t.querySelectorAll("thead th")].map(th=>th.textContent.trim());if(ths.length<6)return;
+  t.classList.add("cards");
+  t.querySelectorAll("tbody tr").forEach(tr=>{let i=0;[...tr.children].forEach(td=>{const n=+td.getAttribute("colspan")||1;if(n===1&&ths[i])td.setAttribute("data-label",ths[i]);i+=n})})}
+new MutationObserver(()=>$("detail").querySelectorAll("table").forEach(cardify)).observe($("detail"),{childList:true});
+new MutationObserver(()=>cardify($("pathBody").closest("table"))).observe($("pathBody"),{childList:true});
+let listY=0;
+function openDetail(){if(!isPhone())return;listY=scrollY;document.body.classList.add("m-detail");scrollTo(0,0)}
+$("list").addEventListener("click",e=>{if(e.target.closest(".row"))openDetail()});
+$("list").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.closest(".row"))openDetail()});
+$("backList").onclick=()=>{document.body.classList.remove("m-detail");requestAnimationFrame(()=>scrollTo(0,listY))};
+["tab-lookup","tab-transfer"].forEach(id=>$(id).addEventListener("click",()=>{if(isPhone())scrollTo(0,0)}));
+
 conv();
 boot();
 $("reload").onclick=()=>boot();
