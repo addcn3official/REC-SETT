@@ -706,8 +706,10 @@ const CONFIG={
   SHEET_ID:"16pGEqIsGoINcr1TuGeRhaS9TTZDaAHnq_SCOUTW9TQg",
   SHEET_NAME:"IMPORT กบษ",
   GID:"1126595077",
-  PUB_CSV_URL:"",  // ถ้าใช้ Publish to web (CSV) ให้วางลิงก์ที่นี่ จะเสถียรที่สุด
+  API_URL:"https://script.google.com/macros/s/AKfycbxmraqZAbwTQO4MpR8c7Ub5HLysFaIUBjSEKjpREg9I9UXEB78PPfM8DPmKmq3Qhc5eRw/exec",      // ลิงก์ Web app ของ Apps Script (…/exec) อ่านทุกแถว ไม่สนตัวกรองในชีต · แนะนำ
+  PUB_CSV_URL:"",  // ถ้าใช้ Publish to web (CSV) ให้วางลิงก์ที่นี่
   TOPO_SHEET:"TOPOLOGY",
+  TOPO_GID:"",       // ใส่เลข gid ของชีต TOPOLOGY (ตัวเลขหลัง #gid= ใน URL) เพื่อไม่ให้ตัวกรองในชีตมีผล
   TOPO_PUB_CSV_URL:""
 };
 async function fetchCSV(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
@@ -715,17 +717,25 @@ async function fetchCSV(url){const r=await fetch(url,{cache:"no-store"});if(!r.o
 async function loadSheet(){
   const id=CONFIG.SHEET_ID,urls=[];
   if(CONFIG.PUB_CSV_URL)urls.push(CONFIG.PUB_CSV_URL);
-  urls.push(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CONFIG.SHEET_NAME)}`);
+  // export ดึงทุกแถว ไม่สนตัวกรองในชีต · gviz ใช้สำรองเท่านั้น (gviz ตัดแถวที่ถูกกรองซ่อนไว้ออก)
   if(CONFIG.GID)urls.push(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${CONFIG.GID}`);
+  urls.push(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CONFIG.SHEET_NAME)}`);
   let last;for(const u of urls){try{const rows=await fetchCSV(u);fromRows(rows,"Google Sheet");return true}catch(e){last=e}}
   throw last}
 async function loadTopo(){
   const urls=[];if(CONFIG.TOPO_PUB_CSV_URL)urls.push(CONFIG.TOPO_PUB_CSV_URL);
+  if(CONFIG.TOPO_GID)urls.push(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${CONFIG.TOPO_GID}`);
   urls.push(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CONFIG.TOPO_SHEET)}`);
   for(const u of urls){try{topoFromRows(await fetchCSV(u));return}catch(e){console.warn("TOPOLOGY",e)}}
 }
+async function loadApi(){
+  const r=await fetch(CONFIG.API_URL,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
+  const d=await r.json();if(!d||!Array.isArray(d.main))throw new Error(d&&d.error||"Apps Script ตอบกลับไม่ถูกต้อง");
+  fromRows(d.main,"Google Sheet");if(Array.isArray(d.topo)&&d.topo.length)topoFromRows(d.topo);
+}
 async function boot(){
   $("srcInfo").textContent="กำลังโหลดจาก Google Sheet…";
+  if(CONFIG.API_URL){try{await loadApi();refreshJobs();return}catch(err){console.warn("API",err)}}
   try{await loadSheet();await loadTopo();refreshJobs();return}catch(err){console.warn(err)}
   let csv=null,name="";try{csv=localStorage.getItem("rc_csv");name=localStorage.getItem("rc_name")||""}catch(_){}
   if(csv){try{fromRows(parseCSV(csv),"ไฟล์ "+name+" (โหลด Sheet ไม่ได้)");return}catch(_){}}
