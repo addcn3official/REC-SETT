@@ -337,6 +337,12 @@ pre.report{background:var(--sunk);border-color:var(--line);font-size:12.5px;line
   .panel{padding:14px}
   .titlebar{padding:14px}
 }
+
+.org{font-size:13px;font-weight:600;color:var(--head-fg);padding-right:12px;margin-right:2px;border-right:1px solid rgb(255 255 255/.2);white-space:nowrap}
+@media (max-width:640px){.org{flex:1 1 100%;border-right:0;padding-right:0;font-size:12.5px;color:var(--head-muted)}}
+
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.filters select[hidden]+select{grid-column:1/-1}
 </style>
 </head>
 <body>
@@ -348,7 +354,7 @@ pre.report{background:var(--sunk);border-color:var(--line);font-size:12.5px;line
     <button class="tab" role="tab" id="tab-lookup" aria-selected="true">ดูค่าอุปกรณ์</button>
     <button class="tab" role="tab" id="tab-transfer" aria-selected="false">วิเคราะห์ฝากโหลด</button>
   </div>
-  <div class="src"><span class="status"><i class="dot" aria-hidden="true"></i><span id="srcInfo">—</span></span>
+  <div class="src"><span class="org">แผนกควบคุมระบบไฟฟ้า กปบ.(น3)</span><span class="status"><i class="dot" aria-hidden="true"></i><span id="srcInfo">—</span></span>
     <button class="btn" id="reload">โหลดใหม่</button>
     <label class="btn" for="csvFile">นำเข้า CSV</label>
     <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
@@ -361,7 +367,8 @@ pre.report{background:var(--sunk);border-color:var(--line);font-size:12.5px;line
       <div class="listbox">
         <div class="listhead">
           <input type="search" id="q" placeholder="ค้นหา รหัสสั่งการ / จุดติดตั้ง / Serial" aria-label="ค้นหา">
-          <select id="fOffice" aria-label="กรองตาม กฟส."><option value="">ทุก กฟส.</option></select>
+          <div class="filters"><select id="fProv" aria-label="กรองตามจังหวัด"><option value="">ทุกจังหวัด</option></select>
+          <select id="fOffice" aria-label="กรองตามการไฟฟ้า"><option value="">ทุกการไฟฟ้า</option></select></div>
           <span class="count" id="count"></span>
         </div>
         <div class="list" id="list"></div>
@@ -450,8 +457,7 @@ function fromRows(rows,label){
   DB=rows.slice(hi+1).map(r=>{const o={};head.forEach((h,i)=>{if(h)o[h]=r[i]??""});return o}).filter(o=>val(o,"รหัสสั่งการ"));
   DB.sort((a,b)=>val(a,"รหัสสั่งการ").localeCompare(val(b,"รหัสสั่งการ")));
   SOURCE=label; sel=null;
-  const offices=[...new Set(DB.map(r=>val(r,"กฟฟ.")).filter(Boolean))].sort();
-  $("fOffice").innerHTML='<option value="">ทุก กฟส. ('+offices.length+')</option>'+offices.map(o=>`<option>${esc(o)}</option>`).join("");
+  buildFilters();
   showSrc();
   renderList(); renderDetail(); renderTransfer();
 }
@@ -472,9 +478,37 @@ $("csvFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)retur
   rd.readAsText(f,"utf-8");e.target.value=""});
 
 /* ---------- lookup ---------- */
+/* ---------- province → office filter (sheet OFFICE: จังหวัด | การไฟฟ้า) ---------- */
+let OFFICE=new Map(); const NOPROV="ไม่ระบุจังหวัด";
+function officeFromRows(rows){
+  const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==="จังหวัด"));if(hi<0)return;
+  const h=rows[hi].map(c=>String(c).trim()),ip=h.indexOf("จังหวัด"),io=h.findIndex(x=>x==="การไฟฟ้า"||x==="กฟฟ.");if(io<0)return;
+  OFFICE=new Map();rows.slice(hi+1).forEach(r=>{const o=String(r[io]??"").trim(),p=String(r[ip]??"").trim();if(o&&p)OFFICE.set(o,p)});
+  buildFilters();renderList();
+}
+const provOf=o=>OFFICE.get(o)||NOPROV;
+const offRank=o=>/^กฟจ/.test(o)?0:/^กฟส/.test(o)?1:2;
+function buildFilters(){
+  const offices=[...new Set(DB.map(r=>val(r,"กฟฟ.")).filter(Boolean))];
+  const cnt={};DB.forEach(r=>{const p=provOf(val(r,"กฟฟ."));cnt[p]=(cnt[p]||0)+1});
+  const order=[...new Set(OFFICE.values())];
+  const provs=[...new Set(offices.map(provOf))].sort((a,b)=>(a===NOPROV)-(b===NOPROV)||(order.indexOf(a)-order.indexOf(b)));
+  const cur=$("fProv").value;
+  $("fProv").innerHTML=`<option value="">ทุกจังหวัด (${provs.length})</option>`+provs.map(p=>`<option value="${esc(p)}" ${p===cur?"selected":""}>${esc(p)} · ${cnt[p]} ตัว</option>`).join("");
+  $("fProv").hidden=!OFFICE.size;
+  buildOffices();
+}
+function buildOffices(){
+  const p=$("fProv").value, cur=$("fOffice").value;
+  const offices=[...new Set(DB.map(r=>val(r,"กฟฟ.")).filter(Boolean))].filter(o=>!p||provOf(o)===p)
+    .sort((a,b)=>offRank(a)-offRank(b)||a.localeCompare(b,"th"));
+  $("fOffice").innerHTML=`<option value="">${p?"ทุกการไฟฟ้าใน "+esc(p):"ทุกการไฟฟ้า"} (${offices.length})</option>`+offices.map(o=>`<option ${o===cur?"selected":""}>${esc(o)}</option>`).join("");
+  if(cur&&!offices.includes(cur))$("fOffice").value="";
+}
+$("fProv").addEventListener("change",()=>{buildOffices();renderList()});
 function renderList(){
-  const q=$("q").value.trim().toLowerCase(), off=$("fOffice").value;
-  const rows=DB.filter(r=>(!off||val(r,"กฟฟ.")===off)&&(!q||[ "รหัสสั่งการ","จุดติดตั้ง","RC-Serial No.","RC-PEA No.","Side ID","กฟฟ."].some(k=>val(r,k).toLowerCase().includes(q))));
+  const q=$("q").value.trim().toLowerCase(), off=$("fOffice").value, prov=$("fProv").value;
+  const rows=DB.filter(r=>(!off||val(r,"กฟฟ.")===off)&&(!prov||provOf(val(r,"กฟฟ."))===prov)&&(!q||[ "รหัสสั่งการ","จุดติดตั้ง","RC-Serial No.","RC-PEA No.","Side ID","กฟฟ."].some(k=>val(r,k).toLowerCase().includes(q))));
   $("count").textContent=`แสดง ${rows.length} จาก ${DB.length} ตัว`;
   $("list").innerHTML=rows.length?rows.slice(0,400).map(r=>{const c=val(r,"รหัสสั่งการ");
     return `<div class="row" tabindex="0" data-c="${esc(c)}" aria-current="${sel===c}"><span class="code">${esc(c)}</span><span class="mono" style="font-size:13px">${esc(val(r,"Minimum Trip Phase")||"–")}/${esc(val(r,"Minimum Trip Ground")||"–")} A</span><span class="sub">${esc(val(r,"กฟฟ."))} · ${esc(val(r,"จุดติดตั้ง"))}</span></div>`}).join("")
@@ -806,6 +840,7 @@ const CONFIG={
   API_URL:"https://script.google.com/macros/s/AKfycbxmraqZAbwTQO4MpR8c7Ub5HLysFaIUBjSEKjpREg9I9UXEB78PPfM8DPmKmq3Qhc5eRw/exec",      // ลิงก์ Web app ของ Apps Script (…/exec) อ่านทุกแถว ไม่สนตัวกรองในชีต · แนะนำ
   PUB_CSV_URL:"",  // ถ้าใช้ Publish to web (CSV) ให้วางลิงก์ที่นี่
   TOPO_SHEET:"TOPOLOGY",
+  OFFICE_SHEET:"OFFICE",
   TOPO_GID:"",       // ใส่เลข gid ของชีต TOPOLOGY (ตัวเลขหลัง #gid= ใน URL) เพื่อไม่ให้ตัวกรองในชีตมีผล
   TOPO_PUB_CSV_URL:""
 };
@@ -825,15 +860,18 @@ async function loadTopo(){
   urls.push(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CONFIG.TOPO_SHEET)}`);
   for(const u of urls){try{topoFromRows(await fetchCSV(u));return}catch(e){console.warn("TOPOLOGY",e)}}
 }
+async function loadOffice(){
+  try{officeFromRows(await fetchCSV(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CONFIG.OFFICE_SHEET)}`))}catch(e){console.warn("OFFICE",e)}
+}
 async function loadApi(){
   const r=await fetch(CONFIG.API_URL,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
   const d=await r.json();if(!d||!Array.isArray(d.main))throw new Error(d&&d.error||"Apps Script ตอบกลับไม่ถูกต้อง");
-  fromRows(d.main,"Google Sheet");if(Array.isArray(d.topo)&&d.topo.length)topoFromRows(d.topo);
+  fromRows(d.main,"Google Sheet");if(Array.isArray(d.topo)&&d.topo.length)topoFromRows(d.topo);if(Array.isArray(d.office)&&d.office.length)officeFromRows(d.office);
 }
 async function boot(){
   $("srcInfo").textContent="กำลังโหลดจาก Google Sheet…";
   if(CONFIG.API_URL){try{await loadApi();refreshJobs();return}catch(err){console.warn("API",err)}}
-  try{await loadSheet();await loadTopo();refreshJobs();return}catch(err){console.warn(err)}
+  try{await loadSheet();await loadTopo();await loadOffice();refreshJobs();return}catch(err){console.warn(err)}
   let csv=null,name="";try{csv=localStorage.getItem("rc_csv");name=localStorage.getItem("rc_name")||""}catch(_){}
   if(csv){try{fromRows(parseCSV(csv),"ไฟล์ "+name+" (โหลด Sheet ไม่ได้)");return}catch(_){}}
   fromRows([H,...SAMPLE],"ข้อมูลตัวอย่าง (โหลด Sheet ไม่ได้)");
