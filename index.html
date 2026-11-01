@@ -356,7 +356,6 @@ pre.report{background:var(--sunk);border-color:var(--line);font-size:12.5px;line
   </div>
   <div class="src"><span class="org">แผนกควบคุมระบบไฟฟ้า กปบ.(น3)</span><span class="status"><i class="dot" aria-hidden="true"></i><span id="srcInfo">—</span></span>
     <button class="btn" id="reload">โหลดใหม่</button>
-    <label class="btn" for="csvFile">นำเข้า CSV</label>
     <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
   </div>
 </div></header>
@@ -456,7 +455,7 @@ function fromRows(rows,label){
   const head=rows[hi].map(c=>String(c).trim());
   DB=rows.slice(hi+1).map(r=>{const o={};head.forEach((h,i)=>{if(h)o[h]=r[i]??""});return o}).filter(o=>val(o,"รหัสสั่งการ"));
   DB.sort((a,b)=>val(a,"รหัสสั่งการ").localeCompare(val(b,"รหัสสั่งการ")));
-  SOURCE=label; sel=null;
+  SOURCE=label; sel=sel&&DB.some(r=>val(r,"รหัสสั่งการ")===sel)?sel:null;
   buildFilters();
   showSrc();
   renderList(); renderDetail(); renderTransfer();
@@ -863,14 +862,28 @@ async function loadTopo(){
 async function loadOffice(){
   try{officeFromRows(await fetchCSV(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CONFIG.OFFICE_SHEET)}`))}catch(e){console.warn("OFFICE",e)}
 }
-async function loadApi(){
-  const r=await fetch(CONFIG.API_URL,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
-  const d=await r.json();if(!d||!Array.isArray(d.main))throw new Error(d&&d.error||"Apps Script ตอบกลับไม่ถูกต้อง");
-  fromRows(d.main,"Google Sheet");if(Array.isArray(d.topo)&&d.topo.length)topoFromRows(d.topo);if(Array.isArray(d.office)&&d.office.length)officeFromRows(d.office);
+const CACHE_KEY="rc_api_v1";
+function applyApi(d,label){
+  if(!d||!Array.isArray(d.main))throw new Error(d&&d.error||"Apps Script ตอบกลับไม่ถูกต้อง");
+  fromRows(d.main,label);if(Array.isArray(d.topo)&&d.topo.length)topoFromRows(d.topo);if(Array.isArray(d.office)&&d.office.length)officeFromRows(d.office);
 }
-async function boot(){
-  $("srcInfo").textContent="กำลังโหลดจาก Google Sheet…";
-  if(CONFIG.API_URL){try{await loadApi();refreshJobs();return}catch(err){console.warn("API",err)}}
+async function loadApi(fresh){
+  const r=await fetch(CONFIG.API_URL+(fresh?"?fresh=1":""),{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
+  const txt=await r.text();const d=JSON.parse(txt);
+  applyApi(d,"Google Sheet");
+  try{localStorage.setItem(CACHE_KEY,txt);localStorage.setItem(CACHE_KEY+"_t",String(Date.now()))}catch(_){}
+}
+/* แสดงข้อมูลที่บันทึกไว้ในเครื่องทันที แล้วค่อยอัปเดตจาก Sheet เบื้องหลัง */
+function showCached(){
+  try{const txt=localStorage.getItem(CACHE_KEY);if(!txt)return false;
+    const t=+localStorage.getItem(CACHE_KEY+"_t")||0,ago=Math.max(1,Math.round((Date.now()-t)/60000));
+    applyApi(JSON.parse(txt),`ข้อมูลเมื่อ ${ago<60?ago+" นาที":Math.round(ago/60)+" ชม."}ที่แล้ว · กำลังอัปเดต…`);refreshJobs();return true}catch(_){return false}
+}
+async function boot(fresh){
+  const hadCache=CONFIG.API_URL&&!fresh&&showCached();
+  if(!hadCache)$("srcInfo").textContent="กำลังโหลดจาก Google Sheet…";
+  if(fresh)$("srcInfo").textContent="กำลังโหลดข้อมูลล่าสุด…";
+  if(CONFIG.API_URL){try{await loadApi(fresh);refreshJobs();return}catch(err){console.warn("API",err);if(hadCache){$("srcInfo").textContent+=" (อัปเดตไม่สำเร็จ)";return}}}
   try{await loadSheet();await loadTopo();await loadOffice();refreshJobs();return}catch(err){console.warn(err)}
   let csv=null,name="";try{csv=localStorage.getItem("rc_csv");name=localStorage.getItem("rc_name")||""}catch(_){}
   if(csv){try{fromRows(parseCSV(csv),"ไฟล์ "+name+" (โหลด Sheet ไม่ได้)");return}catch(_){}}
@@ -897,7 +910,7 @@ $("backList").onclick=()=>{document.body.classList.remove("m-detail");requestAni
 ["tab-lookup","tab-transfer"].forEach(id=>$(id).addEventListener("click",()=>{if(isPhone())scrollTo(0,0)}));
 
 boot();
-$("reload").onclick=()=>boot();
+$("reload").onclick=()=>boot(true);
 </script>
 
 </body>
