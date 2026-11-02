@@ -347,6 +347,11 @@ pre.report{background:var(--sunk);border-color:var(--line);font-size:12.5px;line
 .tiesel{background:var(--sunk);border:1px solid var(--line)}
 .tiesel.need{background:var(--amber-bg);border-color:var(--amber)}
 .tiesel .hint{font-size:12px}
+
+.disclaimer{display:flex;gap:10px;align-items:flex-start;background:var(--amber-bg);color:var(--fg);border:1px solid rgb(161 92 0/.25);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13.5px;line-height:1.55}
+.disclaimer svg{color:var(--amber);flex:none;margin-top:2px}
+.disclaimer b{color:var(--amber);margin-right:4px}
+@media (max-width:640px){.disclaimer{font-size:13px;margin-bottom:12px}}
 </style>
 </head>
 <body>
@@ -381,6 +386,7 @@ pre.report{background:var(--sunk);border-color:var(--line);font-size:12.5px;line
   </section>
 
   <section id="view-transfer" hidden>
+    <div class="disclaimer" role="note"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16.5v.5"/></svg><div><b>หมายเหตุ</b> ระบบวิเคราะห์การฝากโหลด ไม่ได้คำนวณจากขนาดสายและสภาพการจ่ายไฟ เป็นเพียงการอิงข้อมูลจากพิกัดของอุปกรณ์ป้องกันเท่านั้น</div></div>
     <div class="tgrid">
       <div class="tmain">
         <div class="panel">
@@ -812,6 +818,7 @@ function renderVerdict({res,W,M,per,rev}){
   rpt+=allBy.length?`\n\nสรุป: ต้อง Bypass ${allBy.join(", ")} ก่อนปิด Tie`+prots.map(({jb,p})=>`\n${multi?jobNo(jb.out):""}ช่วงที่ฝากจะได้รับการป้องกันจาก ${p?`${p.code} (Min Trip ${p.mp}/${p.mg??"-"} A)`:"CB สถานี"}`).join(""):"\n\nสรุป: ฝากโหลดได้ ไม่ต้อง Bypass";
   if(warn.length)rpt+=`\nเฝ้าระวังกระแสที่ ${warn.map(x=>x.code).join(", ")}`;
   if(inc.length)rpt+=`\nหมายเหตุ: จุดที่ ${inc.join(", ")} ข้อมูลยังไม่ครบ ไม่ได้นำมาคิด`;
+  rpt+=`\n\nหมายเหตุ: ระบบวิเคราะห์การฝากโหลด ไม่ได้คำนวณจากขนาดสายและสภาพการจ่ายไฟ เป็นเพียงการอิงข้อมูลจากพิกัดของอุปกรณ์ป้องกันเท่านั้น`;
   const grp=(t,list)=>list.length?`<div><div class="role">${t}</div><div class="bypass">${list.map(esc).join("<br>")}</div></div>`:"";
   v.innerHTML=H3+(allBy.length
     ?`<div class="big" style="color:var(--red)">ต้อง Bypass ${allBy.length} ตัว ก่อนปิด Tie</div>${grp("เพราะไฟไหลย้อนทาง",rev)}${grp("เพราะโหลดเกินเซ็ตติ้ง",over.map(x=>x.code))}`
