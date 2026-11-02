@@ -343,6 +343,10 @@ pre.report{background:var(--sunk);border-color:var(--line);font-size:12.5px;line
 
 .filters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .filters select[hidden]+select{grid-column:1/-1}
+
+.tiesel{background:var(--sunk);border:1px solid var(--line)}
+.tiesel.need{background:var(--amber-bg);border-color:var(--amber)}
+.tiesel .hint{font-size:12px}
 </style>
 </head>
 <body>
@@ -625,7 +629,7 @@ function renderJobs(){
       <div class="devinfo">${jb.out?devLine(jb.out):"โหลดด้านหลังตัวนี้คือโหลดที่จะฝาก"}</div>
       <div><span class="lbl">กระแสหลังอุปกรณ์ (A)</span>${phIn(`j${j}-add`,`data-add="${j}"`,jb.add)}
         <div class="inval">In (คำนวณ) = <b class="mono" id="j${j}-addN">–</b> A</div></div>
-      ${ti.ask?`<div class="tiesel"><label class="lbl" for="j${j}-tie">หลังจุดปลดมีหลายกิ่ง · Tie อยู่ปลายกิ่งไหน</label><select id="j${j}-tie" data-tie="${j}"><option value="">— เลือก —</option>${[jb.out,...ti.below].map(x=>`<option value="${esc(x)}" ${x===jb.tie?"selected":""}>${esc(x)}${x===jb.out?" (Tie อยู่ติดหลังจุดปลด)":kidsOf(x).length?"":" · ปลายกิ่ง"}</option>`).join("")}</select></div>`:""}
+      ${ti.below.length?`<div class="tiesel${ti.ask&&!jb.tie?" need":""}"><label class="lbl" for="j${j}-tie">${ti.ask?"หลังจุดปลดมีหลายกิ่ง · ":""}จุด Tie อยู่หลังอุปกรณ์ตัวไหน</label><select id="j${j}-tie" data-tie="${j}">${ti.ask?'<option value="">— เลือก —</option>':""}${[jb.out,...ti.below].map(x=>`<option value="${esc(x)}" ${x===jb.tie?"selected":""}>${esc(x)}${x===jb.out?" (Tie อยู่ติดหลังจุดปลด)":kidsOf(x).length?"":" · ปลายสาย"}</option>`).join("")}</select><span class="hint">อุปกรณ์ระหว่างจุดปลดกับ Tie ไฟจะไหลย้อน ต้อง Bypass</span></div>`:""}
       <details><summary class="hint" style="cursor:pointer">แปลง MW → A</summary>
         <div class="fields" style="margin-top:8px;grid-template-columns:1fr 1fr">
           <div><label class="lbl" for="j${j}-cP">MW</label><input type="number" id="j${j}-cP" value="1" step="0.1"></div>
