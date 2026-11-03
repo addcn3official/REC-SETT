@@ -566,16 +566,18 @@ function renderDetail(){
 }
 
 /* ---------- network (sheet TOPOLOGY: รหัสสั่งการ | ต้นทาง | IA | IB | IC  — หรือ โหลด Peak (A) เดิม) ---------- */
-let TOPO=new Map();
+let TOPO=new Map(), CBROW=new Map();
 function topoFromRows(rows){
   const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==="ต้นทาง"));
   if(hi<0)throw new Error("ไม่พบคอลัมน์ 'ต้นทาง'");
   const h=rows[hi].map(c=>String(c).trim()), f=re=>h.findIndex(x=>re.test(x));
   const ic=h.indexOf("รหัสสั่งการ"),ip=h.indexOf("ต้นทาง"),ia=f(/^IA\b/i),ib=f(/^IB\b/i),icc=f(/^IC\b/i),il=f(/โหลด/);
-  TOPO=new Map();
+  TOPO=new Map();CBROW=new Map();
   rows.slice(hi+1).forEach(r=>{const c=String(r[ic]??"").trim();if(!c)return;const g=i=>i>=0?String(r[i]??"").trim():"";
     let A=g(ia),B=g(ib),C=g(icc);if(ia<0&&il>=0){A=B=C=g(il)} // only total load given → assume balanced
+    if(!g(ip)&&(/VB-\d+$/i.test(c)||/^[A-Z]+\d+$/.test(c))){CBROW.set(c,{a:A,b:B,c:C});return} // แถวเบรกเกอร์: ต้นทางว่าง และชื่อแบบ xxxVB-01 · รีโคลสเซอร์ที่ต้นทางว่างยังเป็นรีโคลสเซอร์
     TOPO.set(c,{parent:g(ip),a:A,b:B,c:C})});
+  Object.keys(BASE).forEach(k=>{if(isCB(k)){delete BASE[k];delete cbEst[k]}});
   showSrc();
 }
 function showSrc(){$("srcInfo").innerHTML=`${esc(SOURCE)} · <b class="mono">${DB.length}</b> ตัว`+(TOPO.size?` · โครงข่าย <b class="mono">${TOPO.size}</b>`:"")}
@@ -600,15 +602,25 @@ let JOBS=[{out:"",recv:"",tie:"",add:{a:"",b:"",c:""}}];
 const BASE={};          // code → กระแสเดิม {a,b,c} (เริ่มจากชีต TOPOLOGY แก้ได้)
 const MUP={};           // recv ที่ไม่มีใน TOPOLOGY → [อุปกรณ์ต้นทางที่เพิ่มเอง]
 const mpOf=c=>num(val(byCode(c)||{},"Minimum Trip Phase")), mgOf=c=>num(val(byCode(c)||{},"Minimum Trip Ground"));
-const baseOf=c=>BASE[c]||(BASE[c]={...topoPh(c)});
+const baseOf=c=>BASE[c]||(isCB(c)?cbBase(c):(BASE[c]={...topoPh(c)}));
 const chainOf=jb=>jb.recv?[jb.recv,...(TOPO.has(jb.recv)?upChain(jb.recv).chain:(MUP[jb.recv]||[]))]:[];
+/* เบรกเกอร์ต้นทาง = ค่าในช่อง "ต้นทาง" ตัวบนสุดของสายฝั่งรับ (เช่น BQA01) พิกัดตาม CONFIG.CB_RATING */
+const cbOf=jb=>jb.recv&&TOPO.has(jb.recv)?upChain(jb.recv).root||"":"";
+const isCB=c=>!!c&&!TOPO.has(c)&&(CBROW.has(c)||/VB-\d+$/i.test(c)||(!byCode(c)&&[...TOPO.values()].some(v=>v.parent===c)));
+const cbList=()=>[...new Set([...CBROW.keys(),...[...TOPO.values()].map(v=>v.parent).filter(p=>p&&isCB(p))])];
+const cbEst={};
+function cbBase(c){ // ค่าเริ่มต้น = ผลรวมกระแสรีโคลสเซอร์ตัวแรกใต้เบรกเกอร์ (ค่าต่ำสุดที่เป็นไปได้) แก้ได้ในตาราง
+  if(!BASE[c]&&CBROW.has(c)&&pmax(CBROW.get(c))){BASE[c]={...CBROW.get(c)};cbEst[c]=false}
+  if(!BASE[c]){const s={a:0,b:0,c:0};kidsOf(c).forEach(k=>{const p=topoPh(k);["a","b","c"].forEach(x=>s[x]+=n0(p[x]))});
+    BASE[c]={a:s.a?String(s.a):"",b:s.b?String(s.b):"",c:s.c?String(s.c):""};cbEst[c]=true}
+  return BASE[c]}
 const hasAdd=jb=>pmax(jb.add)>0;
 
 function suggHTML(q){
   q=q.trim().toUpperCase();if(!q)return"";
-  const codes=[...new Set([...DB.map(r=>val(r,"รหัสสั่งการ")),...TOPO.keys()])];
+  const codes=[...new Set([...cbList(),...DB.map(r=>val(r,"รหัสสั่งการ")),...TOPO.keys()])];
   const hits=codes.filter(c=>c.toUpperCase().includes(q)||val(byCode(c)||{},"จุดติดตั้ง").toUpperCase().includes(q)).slice(0,30);
-  return hits.length?hits.map(c=>{const r=byCode(c)||{};return `<button type="button" data-c="${esc(c)}"><b class="mono">${esc(c)}</b> <span class="hint">${esc(val(r,"Minimum Trip Phase")||"–")}/${esc(val(r,"Minimum Trip Ground")||"–")} A · ${esc(val(r,"จุดติดตั้ง")||(TOPO.has(c)?"ต่อจาก "+TOPO.get(c).parent:""))}</span></button>`}).join(""):'<div class="hint" style="padding:8px 12px">ไม่พบรหัสนี้</div>';
+  return hits.length?hits.map(c=>{const r=byCode(c)||{};if(isCB(c))return `<button type="button" data-c="${esc(c)}"><b class="mono">${esc(c)}</b> <span class="pill">เบรกเกอร์ต้นทาง</span> <span class="hint">พิกัด ${CONFIG.CB_RATING} A · ${kidsOf(c).length} สายย่อย</span></button>`;return `<button type="button" data-c="${esc(c)}"><b class="mono">${esc(c)}</b> <span class="hint">${esc(val(r,"Minimum Trip Phase")||"–")}/${esc(val(r,"Minimum Trip Ground")||"–")} A · ${esc(val(r,"จุดติดตั้ง")||(TOPO.has(c)?"ต่อจาก "+TOPO.get(c).parent:""))}</span></button>`}).join(""):'<div class="hint" style="padding:8px 12px">ไม่พบรหัสนี้</div>';
 }
 function picker(inpId,boxId,onPick){
   const inp=$(inpId),box=$(boxId);
@@ -618,6 +630,7 @@ function picker(inpId,boxId,onPick){
 picker("upQ","upS",c=>{addUp(c);$("upQ").value=""});
 ["click","touchstart"].forEach(ev=>document.addEventListener(ev,e=>{if(!e.target.closest(".adder"))document.querySelectorAll(".sugg").forEach(x=>x.hidden=true)},{passive:true}));
 function devLine(c){const r=byCode(c),t=TOPO.get(c);
+  if(isCB(c))return `<b>${esc(c)}</b> · เบรกเกอร์ต้นทาง<br>พิกัด <b>${CONFIG.CB_RATING}</b> A · รีโคลสเซอร์ในฟีดเดอร์ <b>${descendants(c).length}</b> ตัว`+(CBROW.has(c)&&pmax(CBROW.get(c))?"":`<br><span style="color:var(--amber)">ยังไม่มีกระแสเบรกเกอร์ในชีต ใช้ค่าประมาณจากรีโคลสเซอร์ตัวแรก กรุณาตรวจ</span>`);
   return `<b>${esc(c)}</b>${r?" · "+esc(val(r,"จุดติดตั้ง")):""}<br>Min Trip Ph <b>${esc(r?val(r,"Minimum Trip Phase")||"–":"–")}</b> A · G <b>${esc(r?val(r,"Minimum Trip Ground")||"–":"–")}</b> A`
     +(t?`<br>ต่อจาก <b>${esc(t.parent||"–")}</b>`:`<br><span style="color:var(--amber)">ไม่มีในชีต TOPOLOGY</span>`)}
 const phIn=(id,attrs,v)=>`<div class="phase">${["a","b","c"].map(k=>`<label>I${k.toUpperCase()}<input type="number" min="0" inputmode="decimal" placeholder="0" id="${id}${k.toUpperCase()}" ${attrs} data-k="${k}" value="${esc(v[k]??"")}"></label>`).join("")}</div>`;
@@ -664,11 +677,13 @@ function convJ(j){const P=+$(`j${j}-cP`).value||0,V=+$(`j${j}-cV`).value,pf=+$(`
 
 function setOut(j,c){const jb=JOBS[j];jb.out=c||"";
   if(jb.out&&TOPO.has(jb.out))jb.add={...topoPh(jb.out)};
+  else if(isCB(jb.out))jb.add={...cbBase(jb.out)};
   jb.tie=tieInfo(jb.out).auto;
   if(jb.out&&jb.out===RECV){RECV="";JOBS.forEach(x=>x.recv="")}
   renderTransfer();}
 function setRecv(c){RECV=c||"";JOBS.forEach(jb=>{jb.recv=RECV;if(jb.out&&jb.out===RECV)jb.out=""});if(RECV)chainOf(JOBS[0]).forEach(baseOf);renderTransfer();}
 function refreshJobs(){JOBS.forEach(jb=>{if(jb.out&&TOPO.has(jb.out)&&!hasAdd(jb))jb.add={...topoPh(jb.out)};
+  if(isCB(jb.out)&&!hasAdd(jb))jb.add={...cbBase(jb.out)};
   if(jb.out&&!tieInfo(jb.out).ask)jb.tie=tieInfo(jb.out).auto});
   Object.keys(BASE).forEach(k=>{if(TOPO.has(k)&&!pmax(BASE[k]))BASE[k]={...topoPh(k)}});renderTransfer();}
 function lastJob(){return JOBS.length-1}
@@ -698,16 +713,16 @@ function syncBase(t){const c=t.dataset.base,k=t.dataset.k;baseOf(c)[k]=t.value;
 function calc(){
   const W=+$("thWarn").value||80, M=+$("thMax").value||100;
   const devs=new Map();
-  JOBS.forEach((jb,j)=>{if(!jb.recv)return;chainOf(jb).forEach((c,k)=>{
+  JOBS.forEach((jb,j)=>{if(!jb.recv)return;const cb=cbOf(jb);[...chainOf(jb),...(cb?[cb]:[])].forEach((c,k)=>{
     let d=devs.get(c);if(!d){d={code:c,isRecv:false,from:[],sum:{a:0,b:0,c:0}};devs.set(c,d)}
     if(k===0)d.isRecv=true;
     if(jb.out&&hasAdd(jb)){d.from.push(jb.out);["a","b","c"].forEach(x=>d.sum[x]+=n0(jb.add[x]))}})});
-  const res=[...devs.values()].map(d=>{const p=baseOf(d.code),mp=mpOf(d.code),mg=mgOf(d.code);
+  const res=[...devs.values()].map(d=>{const cb=isCB(d.code),p=cb?cbBase(d.code):baseOf(d.code),mp=cb?(+CONFIG.CB_RATING||null):mpOf(d.code),mg=cb?null:mgOf(d.code);
     const after={a:n0(p.a)+d.sum.a,b:n0(p.b)+d.sum.b,c:n0(p.c)+d.sum.c};
     const mx=pmax(after), nn=inN(after.a,after.b,after.c);
     const pp=mp?mx/mp*100:null, pg=mg?nn/mg*100:null;
     const worst=Math.max(pp??0,pg??0), st=mp==null?"na":worst>=M?"bad":worst>=W?"warn":"ok";
-    return {...p,code:d.code,from:d.from,sum:d.sum,role:d.isRecv?"ตัวรับฝาก":"ต้นทางตัวรับ",after,mx,nn,mp,mg,pp,pg,st,loc:val(byCode(d.code)||{},"จุดติดตั้ง")}});
+    return {...p,code:d.code,cb,from:d.from,sum:d.sum,role:cb?"เบรกเกอร์ต้นทาง":d.isRecv?"ตัวรับฝาก":"ต้นทางตัวรับ",after,mx,nn,mp,mg,pp,pg,st,loc:cb?`พิกัด ${CONFIG.CB_RATING} A`+(cbEst[d.code]?" · กระแสเดิมประมาณจากรีโคลสเซอร์ใต้เบรกเกอร์ แก้ได้":""):val(byCode(d.code)||{},"จุดติดตั้ง")}});
   const per=JOBS.map(jb=>{const rev=jb.out&&jb.tie?(revPath(jb.tie,jb.out)||[]):[];
     const side=jb.tie?(jb.out?descendants(jb.out):[]).filter(c=>!rev.includes(c)):[];return {rev,side}});
   return {res,W,M,per,rev:[...new Set(per.flatMap(p=>p.rev))]};
@@ -716,7 +731,8 @@ function warnings(){
   const w=[];
   JOBS.forEach((jb,j)=>{const P=JOBS.length>1?`จุดที่ ${j+1}: `:"";
     if(jb.out&&jb.recv&&(jb.recv===jb.out||descendants(jb.out).includes(jb.recv)||(TOPO.has(jb.recv)&&upChain(jb.recv).chain.includes(jb.out))))w.push(["bad",`${P}${jb.recv} อยู่หลัง ${jb.out} ฝากไปตัวนี้ไม่ได้ ต้องเลือกตัวรับจากวงจรอื่น`]);
-    if(jb.out&&!TOPO.has(jb.out))w.push(["warn",`${P}${jb.out} ยังไม่มีในชีต TOPOLOGY กรอกกระแสเอง และเว็บหาตัวที่ไฟย้อนให้ไม่ได้`]);
+    if(jb.out&&jb.recv&&isCB(jb.out)&&TOPO.has(jb.recv)&&upChain(jb.recv).root===jb.out)w.push(["bad",`${P}${jb.recv} อยู่ในฟีดเดอร์ ${jb.out} ที่ปลด ฝากไปตัวนี้ไม่ได้`]);
+    if(jb.out&&!TOPO.has(jb.out)&&!isCB(jb.out))w.push(["warn",`${P}${jb.out} ยังไม่มีในชีต TOPOLOGY กรอกกระแสเอง และเว็บหาตัวที่ไฟย้อนให้ไม่ได้`]);
     if(jb.recv&&!TOPO.has(jb.recv))w.push(["warn",`${P}${jb.recv} ยังไม่มีในชีต TOPOLOGY เพิ่มอุปกรณ์ต้นทางของตัวรับเองได้ด้านล่าง`]);
     JOBS.forEach((o,i)=>{if(i===j||!o.out||!jb.out)return;
       if(o.out===jb.out&&i<j)w.push(["bad",`จุดที่ ${i+1} และ ${j+1} ปลดตัวเดียวกัน (${jb.out})`]);
@@ -781,7 +797,7 @@ function renderSLD({res,per}){
   const node=(cls,sym,nm,sub)=>`<div class="node ${cls}"><div class="sym">${sym}</div><div class="nm">${nm}</div><div class="sub2">${sub}</div></div>`;
   const R=new Map(res.map(x=>[x.code,x])), multi=JOBS.length>1;
   $("sld").innerHTML=JOBS.map((jb,j)=>{
-    const rootA=jb.out&&TOPO.has(jb.out)?(upChain(jb.out).root||TOPO.get(jb.out).parent):"";
+    const rootA=isCB(jb.out)?"":jb.out&&TOPO.has(jb.out)?(upChain(jb.out).root||TOPO.get(jb.out).parent):"";
     const rootB=jb.recv&&TOPO.has(jb.recv)?upChain(jb.recv).root:"";
     let h=node("","▤",esc(rootA||"สถานีเดิม"),"สถานีเดิม")+'<div class="wire dead"></div>'
       +node("open","O",esc(jb.out||"ตัวที่ปลด"),"เปิด")+'<div class="wire dead"></div>'
@@ -791,7 +807,8 @@ function renderSLD({res,per}){
     const ch=chainOf(jb);
     if(ch.length)ch.forEach(c=>{const x=R.get(c);h+=node(x?x.st:"","R",esc(c),x&&x.pp!=null?x.pp.toFixed(0)+"% · "+(x.st==="bad"?"Bypass":x.st==="warn"?"ระวัง":"ผ่าน")+(x.from.length>1?` · รับ ${x.from.length} จุด`:""):"–")+'<div class="wire live"></div>'});
     else h+=node("","R","ตัวรับฝาก","")+'<div class="wire live"></div>';
-    h+=node("","▤",esc(rootB||"สถานีใหม่"),"สถานีใหม่");
+    const cbx=rootB&&R.get(rootB);
+    h+=cbx?node(cbx.st,"CB",esc(rootB),`${cbx.pp!=null?cbx.pp.toFixed(0)+"% ของ "+cbx.mp+" A":"เบรกเกอร์ต้นทาง"}`):node("","▤",esc(rootB||"สถานีใหม่"),"สถานีใหม่");
     return `<div class="sldjob">${multi?`<div class="role">จุดที่ ${j+1}${jb.out?" · ปลด "+esc(jb.out):""}</div>`:""}<div class="scroll"><div class="sld">${h}</div></div></div>`}).join("");
 }
 function renderVerdict({res,W,M,per,rev}){
@@ -801,17 +818,18 @@ function renderVerdict({res,W,M,per,rev}){
   const inc=JOBS.map((jb,j)=>jb.out&&jb.recv&&hasAdd(jb)?null:j+1).filter(Boolean);
   if(warnings().some(w=>w[0]==="bad")){v.innerHTML=H3+'<div class="big" style="color:var(--red)">ฝากแบบนี้ไม่ได้</div><p class="hint" style="margin:0">ดูข้อความแจ้งเตือนในตารางผลตรวจ</p>';return}
   const noTie=JOBS.map((jb,j)=>jb.out&&!jb.tie?j+1:null).filter(Boolean);
-  if(noTie.length){v.innerHTML=H3+`<div class="big" style="color:var(--amber)">เลือกตำแหน่ง Tie</div><p class="hint" style="margin:0">${JOBS.length>1?"จุดที่ "+noTie.join(", ")+": ":""}หลังจุดปลดมีหลายกิ่ง เลือกในช่อง "Tie อยู่ปลายกิ่งไหน"</p>`;return}
-  const over=res.filter(x=>x.st==="bad"),warn=res.filter(x=>x.st==="warn");
+  if(noTie.length){v.innerHTML=H3+`<div class="big" style="color:var(--amber)">เลือกตำแหน่ง Tie</div><p class="hint" style="margin:0">${JOBS.length>1?"จุดที่ "+noTie.join(", ")+": ":""}หลังจุดปลดมีหลายกิ่ง เลือกในช่อง "จุด Tie อยู่หลังอุปกรณ์ตัวไหน"</p>`;return}
+  const cbOver=res.filter(x=>x.cb&&x.st==="bad");
+  const over=res.filter(x=>x.st==="bad"&&!x.cb),warn=res.filter(x=>x.st==="warn");
   const R=new Map(res.map(x=>[x.code,x])), ifm=+$("ifMin").value||0, multi=JOBS.length>1;
   const allBy=[...new Set([...rev,...over.map(x=>x.code)])];
   const shared=res.filter(x=>x.from.length>1);
   const prots=ready.map(jb=>{const p=chainOf(jb).map(c=>R.get(c)).find(x=>x&&x.st!=="bad");return {jb,p}});
-  const cmp=prots.map(({jb,p})=>`<div class="cmp"><div class="box"><div class="role">${multi?jobNo(jb.out):""}เดิมป้องกันโดย</div><div class="mono">${esc(jb.out)}</div><b>${mpOf(jb.out)??"–"}</b>/<b>${mgOf(jb.out)??"–"}</b> A</div><div>→</div>
+  const cmp=prots.map(({jb,p})=>`<div class="cmp"><div class="box"><div class="role">${multi?jobNo(jb.out):""}เดิมป้องกันโดย</div><div class="mono">${esc(jb.out)}</div>${isCB(jb.out)?`เบรกเกอร์ · พิกัด <b>${CONFIG.CB_RATING}</b>`:`<b>${mpOf(jb.out)??"–"}</b>/<b>${mgOf(jb.out)??"–"}</b>`} A</div><div>→</div>
     <div class="box"><div class="role">ระหว่างฝากป้องกันโดย</div><div class="mono">${p?esc(p.code):"CB สถานี"}</div>${p?`<b>${p.mp??"–"}</b>/<b>${p.mg??"–"}</b> A`:'<span class="hint">ตรวจเซ็ตติ้ง CB</span>'}</div></div>`).join("");
   let sens="";
   if(ifm)sens=prots.filter(x=>x.p&&x.p.mp).map(({jb,p})=>{const k=ifm/p.mp;return k>=1.5?`<div><span class="pill ok">เห็นฟอลต์ปลายสาย</span> <span class="hint">${esc(jobNo(jb.out))}If/Min Trip ของ ${esc(p.code)} = ${k.toFixed(1)} เท่า</span></div>`:`<div><span class="pill bad">อาจไม่เห็นฟอลต์ปลายสาย</span> <span class="hint">${esc(jobNo(jb.out))}If/Min Trip ของ ${esc(p.code)} = ${k.toFixed(1)} เท่า (ควร ≥ 1.5)</span></div>`}).join("");
-  const line=x=>`- ${x.code} (${x.role}${x.from.length?`, รับจาก ${x.from.join(" + ")}`:""}): IA/IB/IC ${fmt(x)} → ${fmt(x.after)} A | เฟสสูงสุด ${x.mx.toFixed(0)}/${x.mp??"-"} A = ${x.pp!=null?x.pp.toFixed(0):"-"}% | In ${x.nn.toFixed(1)}/${x.mg??"-"} A = ${x.pg!=null?x.pg.toFixed(0):"-"}%`;
+  const line=x=>`- ${x.code} (${x.role}${x.from.length?`, รับจาก ${x.from.join(" + ")}`:""}): IA/IB/IC ${fmt(x)} → ${fmt(x.after)} A | เฟสสูงสุด ${x.mx.toFixed(0)}/${x.mp??"-"} A = ${x.pp!=null?x.pp.toFixed(0):"-"}% | In ${x.nn.toFixed(1)}${x.mg!=null?`/${x.mg} A = ${x.pg!=null?x.pg.toFixed(0):"-"}%`:" A"}`;
   let rpt=ready.map(jb=>`${multi?jobNo(jb.out):""}ปลด ${jb.out} ฝากโหลด IA/IB/IC ${fmt(jb.add)} A (In ${inN(n0(jb.add.a),n0(jb.add.b),n0(jb.add.c)).toFixed(1)} A) ไปที่ ${jb.recv}${jb.tie&&jb.tie!==jb.out?` (Tie หลัง ${jb.tie})`:""}`).join("\n")
     +`\nเกณฑ์: เฝ้าระวัง ≥${W}%, เกิน ≥${M}% ของ Minimum Trip\n\nตรวจโหลดฝั่งรับ:\n`+res.map(line).join("\n");
   per.forEach((p,j)=>{if(p.rev.length)rpt+=`\n\n${multi?`จุดที่ ${j+1} `:""}ไฟไหลย้อนทาง (Bypass): ${p.rev.join(", ")}`});
@@ -820,7 +838,8 @@ function renderVerdict({res,W,M,per,rev}){
   if(inc.length)rpt+=`\nหมายเหตุ: จุดที่ ${inc.join(", ")} ข้อมูลยังไม่ครบ ไม่ได้นำมาคิด`;
   rpt+=`\n\nหมายเหตุ: ระบบวิเคราะห์การฝากโหลด ไม่ได้คำนวณจากขนาดสายและสภาพการจ่ายไฟ เป็นเพียงการอิงข้อมูลจากพิกัดของอุปกรณ์ป้องกันเท่านั้น`;
   const grp=(t,list)=>list.length?`<div><div class="role">${t}</div><div class="bypass">${list.map(esc).join("<br>")}</div></div>`:"";
-  v.innerHTML=H3+(allBy.length
+  if(cbOver.length)rpt+=`\n\nเกินพิกัดเบรกเกอร์ต้นทาง: ${cbOver.map(x=>`${x.code} ${x.mx.toFixed(0)}/${x.mp} A (${x.pp.toFixed(0)}%)`).join(", ")} → ฝากโหลดตามนี้ไม่ได้ ต้องลดโหลดที่ฝาก หรือแบ่งไปวงจรอื่น`;
+  v.innerHTML=H3+(cbOver.length?`<div class="big" style="color:var(--red)">เกินพิกัดเบรกเกอร์ต้นทาง</div><div class="note" style="border-left-color:var(--red)">${cbOver.map(x=>`<b class="mono">${esc(x.code)}</b> ${x.mx.toFixed(0)} A จากพิกัด ${x.mp} A (${x.pp.toFixed(0)}%)`).join("<br>")}<br>Bypass ไม่ช่วย ต้องลดโหลดที่ฝาก หรือแบ่งไปฝากวงจรอื่น</div>`:"")+(allBy.length
     ?`<div class="big" style="color:var(--red)">ต้อง Bypass ${allBy.length} ตัว ก่อนปิด Tie</div>${grp("เพราะไฟไหลย้อนทาง",rev)}${grp("เพราะโหลดเกินเซ็ตติ้ง",over.map(x=>x.code))}`
     :`<div class="big" style="color:${warn.length?"var(--amber)":"var(--green)"}">${warn.length?"ฝากได้ แต่ต้องเฝ้าระวัง":"ฝากได้ ไม่ต้อง Bypass"}</div>`)
     +(warn.length?`<div><span class="pill warn">เฝ้าระวัง</span> <span class="mono">${warn.map(x=>esc(x.code)).join(", ")}</span></div>`:"")
@@ -851,6 +870,7 @@ const CONFIG={
   PUB_CSV_URL:"",  // ถ้าใช้ Publish to web (CSV) ให้วางลิงก์ที่นี่
   TOPO_SHEET:"TOPOLOGY",
   OFFICE_SHEET:"OFFICE",
+  CB_RATING:600,    // พิกัดเบรกเกอร์ต้นทาง (A) ที่ต้นฟีดเดอร์ เช่น BQA01, QHA01
   TOPO_GID:"",       // ใส่เลข gid ของชีต TOPOLOGY (ตัวเลขหลัง #gid= ใน URL) เพื่อไม่ให้ตัวกรองในชีตมีผล
   TOPO_PUB_CSV_URL:""
 };
